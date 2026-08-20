@@ -1,0 +1,593 @@
+:root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --muted: #1f2937;
+    --ink: #e5e7eb;
+    --accent: #60a5fa;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --err: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, sans-serif;
+}
+
+header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+header h1 { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
+.htext { color: #e5e7eb; }
+
+/* ================= Кнопка-гамбургер (☰) і випадаюче меню =================
+   Вимога: файлові дії (Новий проєкт/Приклад/Зберегти/Завантажити .xml/.py)
+   тепер живуть під однією кнопкою зліва, а не займають місце в шапці. */
+.hamburger-btn {
+    background: transparent;
+    border: 1px solid var(--muted);
+    color: var(--ink);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+/* Кнопка "Уроки" — ширша за стандартні квадратні кнопки навбару,
+   бо містить текстову мітку поруч із іконкою */
+#lessonsBtn { width: auto; padding: 0 10px; font-size: 13px; }
+.hamburger-btn:hover { background: var(--muted); }
+
+.menu-dropdown {
+    /* position:fixed (не absolute) — координати top/left рахує JS від
+       getBoundingClientRect() кнопки "☰" (у координатах вікна), а не від
+       <header>. z-index із великим запасом — Blockly малює свій тулбокс/
+       флаяут у власному SVG-шарі, який інакше міг перекривати меню
+       (саме це й було багом на скріншоті). */
+    position: fixed;
+    z-index: 100000;
+    background: var(--panel);
+    border: 1px solid var(--muted);
+    border-radius: 10px;
+    padding: 8px;
+    min-width: 200px;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.menu-dropdown button {
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+}
+.menu-dropdown button:hover { background: var(--muted); }
+.menu-sep { height: 1px; background: var(--muted); margin: 4px 2px; }
+
+/* ================= Кнопки, перенесені в шапку (вимога #8) =================
+   "Над вікном симуляції" лишились лише Run/Reset (#runbar) — усе інше
+   (New Project, Example, Save/Load .xml, .py) переїхало в меню "☰", а
+   тут — лише перемикачі видимості трьох панелей. */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.header-actions button { padding: 6px 10px; font-size: 12px; }
+
+/* ================= Кнопка в заголовку панелі (напр. "⛶" повний екран) ================= */
+.panel > header { display: flex; align-items: center; justify-content: space-between; }
+.panel-header-btn {
+    background: transparent;
+    border: 1px solid var(--muted);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.panel-header-btn:hover { background: var(--muted); }
+
+/* ================= Повноекранний режим панелі "Виконання" ================= */
+#canvasWrap:fullscreen {
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#canvasWrap.is-fullscreen #turtle-area { width: 100%; height: 100%; }
+
+.status {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--ink);
+}
+.status-ready   { color: #94a3b8; }
+.status-running { color: #0f172a; background: var(--accent); }
+.status-done    { color: #0f172a; background: var(--ok); }
+.status-error   { color: #0f172a; background: var(--err); }
+
+/* ================= Спадне меню вибору мови ================= */
+/* Стилізовано під загальний темний стиль середовища (як кнопки і панелі),
+   а не під стандартний білий <select> браузера. */
+#langSelect {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: 1px solid var(--muted);
+    background: #0b1220 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+    color: #e5e7eb;
+    padding: 8px 28px 8px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+}
+#langSelect:hover { border-color: #334155; }
+#langSelect:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#langSelect option {
+    background: #0b1220;
+    color: #e5e7eb;
+}
+
+.wrap {
+    height: calc(100% - 54px);
+    display: grid;
+    grid-template-columns: 1fr 420px 520px;
+    gap: 10px;
+    padding: 10px;
+    transition: grid-template-columns .15s ease;
+}
+/* Видимість/ширини колонок тепер обчислює JS (updatePanelLayout() в
+   app.js) — кожна з трьох панелей ховається незалежно через
+   .panel[data-panel] { display:none } + перерахований
+   grid-template-columns, замість фіксованого CSS-класу на весь .wrap. */
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--muted);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel header {
+    background: rgba(255, 255, 255, .03);
+    border-bottom: 1px solid var(--muted);
+    padding: 10px;
+}
+.panel h2 { margin: 0; font-size: 14px; font-weight: 700; }
+.panel .content { flex: 1; display: flex; min-height: 0; }
+
+#blocklyArea { background: #000000; position: relative; flex: 1; }
+
+/* ================= Блокування редактора під час завантаження на Pico ================= */
+.wrap.editor-locked #blocklyDiv,
+.wrap.editor-locked #code { pointer-events: none; filter: grayscale(40%); }
+.wrap.editor-locked #blocklyArea::after,
+.wrap.editor-locked #codeWrap::after {
+    content: '🔒 Завантаження на плату — редагування тимчасово заблоковано';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, .6);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 400;
+}
+#blocklyDiv { position: absolute; inset: 0; }
+
+/* ================= FIX #1: контрастність панелі команд Blockly =================
+   Кольори тепер визначаються переважно через componentStyles теми в app.js
+   (правильний офіційний механізм). Ці правила — підстраховка для елементів,
+   які theme не завжди повністю перекриває в усіх версіях рендерера. */
+.blocklyToolboxCategoryLabel { color: inherit; font-weight: 600; }
+.blocklyToolboxCategoryContainer:hover .blocklyToolboxCategoryLabel,
+.blocklyToolboxSelected .blocklyToolboxCategoryLabel { color: #ffffff; }
+.blocklyFlyoutLabelText { fill: #e5e7eb !important; }
+
+/* ================= Підсвітка синтаксису Python (2 шари) =================
+   #codeHighlight (<pre><code>) лежить ПІД textarea і показує розфарбований
+   текст; сама textarea стає прозорою (лишається лише каретка), тому
+   людина друкує як завжди, а бачить кольоровий синтаксис "під собою". */
+#codeWrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    flex: 1;
+}
+#codeHighlight,
+#code {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: auto;
+    box-sizing: border-box;
+}
+#codeHighlight {
+    background: #0b1020;
+    color: #e2e8f0;
+    pointer-events: none;
+    z-index: 1;
+}
+#code {
+    background: transparent;
+    color: transparent;
+    caret-color: #f8fafc;
+    border: none;
+    outline: none;
+    resize: none;
+    z-index: 2;
+}
+/* палітра підсвітки */
+.hl-kw  { color: #c084fc; font-weight: 600; }
+.hl-str { color: #86efac; }
+.hl-num { color: #fca5a5; }
+.hl-com { color: #64748b; font-style: italic; }
+.hl-fn  { color: #7dd3fc; }
+
+#runbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid var(--muted);
+    flex-wrap: wrap;
+}
+
+button {
+    appearance: none;
+    border: 1px solid var(--muted);
+    background: #0b1220;
+    color: #e5e7eb;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+button:hover { border-color: #334155; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
+
+.canvasWrap {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #ffffff;
+    position: relative;
+}
+#turtle-area { width: 100%; height: 100%; min-height: 300px; }
+
+#output {
+    color: #e5e7eb;
+    height: 320px;
+    padding: 8px;
+    overflow: auto;
+    background: #0b1020;
+    border-top: 1px solid var(--muted);
+    font-family: monospace;
+    font-size: 15px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.note {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    background: rgba(0, 0, 0, 0.2);
+    line-height: 1.5;
+}
+
+@media (max-width: 1200px) {
+    .wrap { grid-template-columns: 1fr; height: auto; }
+    .panel { min-height: 380px; }
+}
+
+/* ================= Кнопка "➕" розширень (синій кружечок) ================= */
+.ext-fab {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none;
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .35);
+    cursor: pointer;
+    z-index: 20;
+}
+.ext-fab:hover { background: #1d4ed8; }
+.ext-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ================= Велике модальне вікно "Модулі" (+ додаткові секції
+   розширень, напр. "Бібліотеки для мікроконтролера" від pico.js) ================= */
+.big-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .6);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.big-modal-box {
+    background: #0b1220;
+    border: 1px solid #1f2937;
+    border-radius: 14px;
+    width: min(720px, 100%);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+/* Вузькіший варіант модального вікна (довідка, help) — ширина 560px */
+.big-modal-box--narrow { width: min(560px, 100%); }
+.big-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.big-modal-header h3 { margin: 0; font-size: 17px; color: #e5e7eb; }
+.big-modal-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.big-modal-close:hover { color: #fff; }
+.big-modal-body { overflow-y: auto; flex: 1; padding-right: 4px; }
+.big-modal-extra-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #1f2937;
+}
+.ext-name { font-size: 14px; font-weight: 600; color: #e5e7eb; }
+.ext-desc { font-size: 12px; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
+
+/* ================= Попередній перегляд вікна Tkinter ================= */
+.tk-preview-banner {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: #fef3c7;
+    color: #78350f;
+    font-size: 11px;
+    padding: 6px 10px;
+    text-align: center;
+    z-index: 5;
+}
+.tk-preview-window {
+    margin: 40px auto 0;
+    background: #f3f4f6;
+    border: 1px solid #9ca3af;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+.tk-preview-titlebar {
+    background: #d1d5db;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-bottom: 1px solid #9ca3af;
+}
+.tk-preview-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.tk-preview-label { color: #111827; font-size: 14px; }
+.tk-preview-button {
+    align-self: flex-start;
+    padding: 6px 14px;
+    border: 1px solid #9ca3af;
+    border-radius: 4px;
+    background: #e5e7eb;
+    color: #111827;
+    cursor: pointer;
+    font-size: 13px;
+}
+.tk-preview-button:hover { background: #d1d5db; }
+.tk-preview-entry {
+    border: 1px solid #9ca3af;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 13px;
+}
+.tk-preview-check, .tk-preview-radio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #111827;
+    font-size: 13px;
+}
+
+/* ================= Панель Raspberry Pi Pico (адаптивне 3-тє вікно) ================= */
+.pico-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #111827;
+    color: #e5e7eb;
+    overflow: auto;
+    padding: 14px;
+    gap: 12px;
+}
+.pico-board {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    background: #0b1020;
+    border-radius: 10px;
+}
+.pico-board svg { width: 100%; max-width: 420px; height: auto; }
+.pico-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pico-toolbar select, .pico-toolbar input[type="text"] {
+    background: #0b1220;
+    color: #e5e7eb;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+.pico-status { font-size: 12px; color: #94a3b8; }
+.pico-status.connected { color: #22c55e; }
+.pico-files {
+    background: #0b1020;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 8px;
+    min-height: 80px;
+    max-height: 160px;
+    overflow: auto;
+}
+.pico-file-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: monospace;
+}
+.pico-file-row:hover { background: rgba(255,255,255,.05); }
+.pico-file-row button { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
+.pico-hint { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+
+
+/* ================= Тост-сповіщення (правий нижній кут) ================= */
+.toast-container {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 300000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 340px;
+    pointer-events: none;
+}
+.toast {
+    background: #0b1220;
+    border: 1px solid #334155;
+    border-left: 4px solid #f59e0b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #e5e7eb;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .25s ease, transform .25s ease;
+}
+.toast.toast-visible { opacity: 1; transform: translateY(0); }
+.toast-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.toast ul { margin: 0; padding-left: 18px; font-size: 12px; color: #cbd5e1; line-height: 1.5; }
+
+/* ================= Плиткова розкладка (модулі, бібліотеки) ================= */
+.tile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+.tile-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 14px 10px;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    background: rgba(255,255,255,.02);
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+.tile-card:hover { background: rgba(255,255,255,.05); border-color: #334155; }
+.tile-card.tile-active { border-color: #3b82f6; background: rgba(59,130,246,.08); }
+.tile-checkbox { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; }
+.tile-icon { border-radius: 8px; }
+.tile-name { font-size: 13px; font-weight: 700; color: #e5e7eb; font-family: monospace; }
+.tile-desc { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+.tile-badge {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-top: 2px;
+}
+.tile-badge.builtin { background: rgba(34,197,94,.15); color: #4ade80; }
+.tile-badge.bundled { background: rgba(168,85,247,.15); color: #c084fc; }
+.tile-badge.ready { background: rgba(56,189,248,.15); color: #38bdf8; }
+.tile-badge.missing { background: rgba(245,158,11,.15); color: #f59e0b; }
+.tile-import-btn { font-size: 10px; padding: 3px 8px; margin-top: 2px; }
+
+/* ================= Заголовок групи в модальних вікнах (уроки, бібліотеки) ================= */
+.modal-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e5e7eb;
+    font-weight: 700;
+    font-size: 13px;
+    margin: 14px 0 6px;
+}
+.modal-group-header:first-child { margin-top: 2px; }
+/* ================= Уроки — специфічні відступи UI ================= */
+/* Колишній lessons.js: soon.style.padding / grid.style.marginBottom */
+.lesson-group-soon { padding: 4px 4px 12px; }
+.lesson-tile-grid  { margin-bottom: 14px; }
+
+/* ================= Pico — заголовок секції бібліотек та підказка ================= */
+/* Колишній pico.js: style="margin-bottom:8px" / style="margin-left:auto" */
+.pico-libraries-header { margin-bottom: 8px; }
+.pico-hint--push-right  { margin-left: auto; }
