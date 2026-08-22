@@ -84,14 +84,16 @@ async function fetchLessonXml(xmlKey) {
 
                 if (!group.lessons.length) {
                     const soon = document.createElement('div');
-                    soon.className = 'pico-hint lesson-group-soon';
+                    soon.className = 'pico-hint';
+                    soon.style.padding = '4px 4px 12px';
                     soon.textContent = t('lessons_coming_soon');
                     body.appendChild(soon);
                     return;
                 }
 
                 const grid = document.createElement('div');
-                grid.className = 'tile-grid lesson-tile-grid';
+                grid.className = 'tile-grid';
+                grid.style.marginBottom = '14px';
                 body.appendChild(grid);
 
                 group.lessons.forEach(lesson => {
