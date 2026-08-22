@@ -205,8 +205,8 @@ function debounce(fn, delay) {
 const MyTheme = Blockly.Theme.defineTheme('mytheme', {
   base: Blockly.Themes.Classic,
   componentStyles: {
-    toolboxBackgroundColour: '#1e3a8a',
-    toolboxForegroundColour: '#facc15',
+    toolboxBackgroundColour: '#0b1220',
+    toolboxForegroundColour: '#e5e7eb',
     flyoutBackgroundColour: '#111827',
     flyoutForegroundColour: '#e5e7eb',
     flyoutOpacity: 1,
@@ -257,33 +257,6 @@ function initializeWorkspace() {
     onResize();
 
     defineBlocksAndGenerators();
-
-    // Знімаємо обмеження типів (check) з вбудованих Blockly-блоків.
-    // Blockly за замовчуванням виставляє check:'Number' на входах
-    // math_arithmetic, controls_repeat_ext і т.д., що не дозволяє
-    // вставляти туди текстові блоки (text_literal, to_str) навіть коли
-    // це має сенс у Python (рядки складаються через +). Знімаємо check
-    // лише на value-inputs (не на statement-inputs і не на полях).
-    [
-        'math_arithmetic', 'math_random_int', 'math_single', 'math_round',
-        'math_modulo', 'math_change', 'controls_repeat_ext', 'controls_whileUntil',
-        'logic_compare', 'logic_operation', 'logic_negate',
-        'lists_create_with', 'lists_getIndex', 'lists_setIndex',
-        'lists_indexOf', 'lists_isEmpty', 'lists_length',
-    ].forEach(type => {
-        const blk = Blockly.Blocks[type];
-        if (!blk) return;
-        const orig = blk.init;
-        blk.init = function() {
-            orig.call(this);
-            this.inputList.forEach(input => {
-                if (input.type === Blockly.inputs.inputTypes.VALUE) {
-                    input.setCheck(null);
-                }
-            });
-        };
-    });
-
     registerFunctionBlockWatcher();
 
     // FIX: під час applyCodeToBlocks() workspace.clear() + domToWorkspace()
@@ -666,32 +639,6 @@ function splitTopLevel(str, delimiters, isComma) {
     return isComma ? -1 : null;
 }
 
-// matchCall(s, fnName) — перевіряє, чи рядок s є викликом fnName(...)
-// де ЗАКРИВАЮЧА ДУЖКА — останній символ (тобто fnName(...) не є частиною
-// більшого виразу типу str("a") + str("b")). Повертає вміст дужок або null.
-// Використовує splitTopLevel для правильного врахування вкладених дужок і рядків.
-function matchCall(s, fnName) {
-    const prefix = fnName + '(';
-    if (!s.startsWith(prefix) || s[s.length - 1] !== ')') return null;
-    // Знаходимо пару для першої '(' — вона має закриватись саме на останньому символі
-    let depth = 0, inStr = null;
-    for (let i = fnName.length; i < s.length; i++) {
-        const c = s[i];
-        if (inStr) { if (c === '\\') { i++; continue; } if (c === inStr) inStr = null; continue; }
-        if (c === '"' || c === "'") { inStr = c; continue; }
-        if (c === '(') { depth++; continue; }
-        if (c === ')') {
-            depth--;
-            if (depth === 0) {
-                // Закриваюча дужка має бути останньою
-                if (i === s.length - 1) return s.slice(fnName.length + 1, i);
-                return null; // є ще щось після дужки — це частина більшого виразу
-            }
-        }
-    }
-    return null;
-}
-
 function splitTopLevelComma(str) {
     const parts = []; let rest = str;
     while (true) {
@@ -737,85 +684,10 @@ function parseExpr(exprStrRaw) {
             return `<block type="math_random_int"><value name="FROM">${parseExpr(parts[0])}</value><value name="TO">${parseExpr(parts[1])}</value></block>`;
         }
     }
-    // ГРУПА "ВВЕДЕННЯ" (input_value/to_int/to_float/to_str) — без цих 4
-    // патернів input()/int()/float()/str() потрапляли в фолбек нижче
-    // (raw_python_expr, сірий блок-заглушка), бо в парсері не було
-    // розпізнавання цих builtin-викликів. input() окремо, бо аргумент
-    // необов'язковий (input() без дужок-вмісту — валідний Python).
-    { // використовуємо matchCall замість regex для коректного балансу дужок
-        const inputArg = matchCall(s, 'input');
-        if (inputArg !== null) {
-            const arg = inputArg.trim();
-            return `<block type="input_value">${arg === '' ? '' : `<value name="PROMPT">${parseExpr(arg)}</value>`}</block>`;
-        }
-        const intArg = matchCall(s, 'int');
-        if (intArg !== null) return `<block type="to_int"><value name="VALUE">${parseExpr(intArg)}</value></block>`;
-        const floatArg = matchCall(s, 'float');
-        if (floatArg !== null) return `<block type="to_float"><value name="VALUE">${parseExpr(floatArg)}</value></block>`;
-        const strArg = matchCall(s, 'str');
-        if (strArg !== null) return `<block type="to_str"><value name="VALUE">${parseExpr(strArg)}</value></block>`;
-    }
-
-    // math_single: abs(x), math.sqrt(x) і т.д. — через matchCall щоб
-    // abs(x) + abs(y) не ковтало весь вираз через жадібний regex
-    { const MATH_SINGLE_OPS = { 'abs':'ABS', 'math.sqrt':'ROOT', 'math.log':'LN',
-        'math.log10':'LOG10', 'math.exp':'EXP', 'math.ceil':'ROUNDUP', 'math.floor':'ROUNDDOWN' };
-      for (const [fn, op] of Object.entries(MATH_SINGLE_OPS)) {
-        const arg = matchCall(s, fn);
-        if (arg !== null) {
-            if (op === 'ROUNDUP' || op === 'ROUNDDOWN')
-                return `<block type="math_round"><field name="OP">${op}</field><value name="NUM">${parseExpr(arg)}</value></block>`;
-            return `<block type="math_single"><field name="OP">${op}</field><value name="NUM">${parseExpr(arg)}</value></block>`;
-        }
-      }
-    }
-    // math.sin/cos/tan(math.radians(x))
-    { const mTrig = s.match(/^math\.(sin|cos|tan)\(math\.radians\((.+)\)\)$/);
-      if (mTrig && matchCall(s, `math.${mTrig[1]}`) !== null)
-        return `<block type="math_single"><field name="OP">${mTrig[1].toUpperCase()}</field><value name="NUM">${parseExpr(mTrig[2])}</value></block>`;
-    }
-    { const roundArg = matchCall(s, 'round');
-      if (roundArg !== null) return `<block type="math_round"><field name="OP">ROUND</field><value name="NUM">${parseExpr(roundArg)}</value></block>`;
-    }
-    { const lenArg = matchCall(s, 'len');
-      if (lenArg !== null) return `<block type="text_length"><value name="VALUE">${parseExpr(lenArg)}</value></block>`;
-    }
-    // (len(x) == 0) → lists_isEmpty
-    let mEmpty = s.match(/^\(?len\((.+)\)\s*==\s*0\)?$/);
-    if (mEmpty) return `<block type="lists_isEmpty"><value name="VALUE">${parseExpr(mEmpty[1])}</value></block>`;
-    // [a, b, c] → lists_create_with
-    if (/^\[.*\]$/.test(s)) {
-        const inner = s.slice(1, -1).trim();
-        const items = inner === '' ? [] : splitTopLevelComma(inner);
-        const itemsXml = items.map((item, i) => `<value name="ADD${i}">${parseExpr(item)}</value>`).join('');
-        return `<block type="lists_create_with"><mutation items="${items.length}"></mutation>${itemsXml}</block>`;
-    }
-    // a[i] → lists_getIndex
-    let mIdx = s.match(/^([A-Za-z_]\w*)\[(.+)\]$/);
-    if (mIdx) {
-        return `<block type="lists_getIndex"><field name="MODE">GET</field><field name="WHERE">FROM_START</field><value name="VALUE">${parseExpr(mIdx[1])}</value><value name="AT">${parseExpr(mIdx[2])}</value></block>`;
-    }
-    // a.index(x) → lists_indexOf
-    let mIndexOf = s.match(/^([A-Za-z_]\w*)\.index\((.+)\)$/);
-    if (mIndexOf) {
-        return `<block type="lists_indexOf"><field name="END">FIRST</field><value name="VALUE">${parseExpr(mIndexOf[1])}</value><value name="FIND">${parseExpr(mIndexOf[2])}</value></block>`;
-    }
-
     if (/^[A-Za-z_]\w*$/.test(s) && !PY_KEYWORDS.has(s)) {
         return `<block type="variables_get"><field name="VAR">${escapeXml(s)}</field></block>`;
     }
     const stripped = stripOuterParens(s);
-    // math_modulo: (a % b) — перевіряємо ОКРЕМО до загального splitTopLevel,
-    // бо math_modulo — це окремий блок від math_arithmetic, і '%' не має
-    // потрапляти в ARITH_OPS-гілку нижче.
-    const modSplit = splitTopLevel(stripped, ['%'], false);
-    if (modSplit) {
-        const left = stripped.slice(0, modSplit.i).trim();
-        const right = stripped.slice(modSplit.i + 1).trim();
-        if (left !== '' && right !== '') {
-            return `<block type="math_modulo"><value name="DIVIDEND">${parseExpr(left)}</value><value name="DIVISOR">${parseExpr(right)}</value></block>`;
-        }
-    }
     const split = splitTopLevel(stripped, OP_TOKENS, false);
     if (split) {
         const left = stripped.slice(0, split.i).trim();
@@ -932,47 +804,6 @@ function parseForRepeat(lines, idx, indent) {
     return { xml, nextIdx: body.nextIdx };
 }
 
-// parseForRange: розпізнає всі варіанти for VAR in range(...):
-// • range(N)            → controls_repeat_ext  (VAR == '_')
-// • range(FROM, TO+1)   → controls_for_simple  (крок = 1, включно з TO)
-// • range(FROM, TO+1,S) → controls_for         (з явним кроком BY)
-// • інше                → raw_python_block
-function parseForRange(lines, idx, indent) {
-    const text = lines[idx].text;
-    const m = text.match(/^for ([A-Za-z_]\w*) in range\((.+)\):$/);
-    if (!m) return parseRawCompound(lines, idx, indent);
-    const varName = m[1];
-    const rangeInner = m[2];
-    const parts = splitTopLevelComma(rangeInner);
-    idx++;
-    const body = parseBlockSequence(lines, idx, indent + 1);
-    const stmt = body.xml ? `<statement name="DO">${body.xml}</statement>` : '';
-    const varXml = `<field name="VAR">${escapeXml(varName)}</field>`;
-
-    if (parts.length === 1) {
-        // range(N) — простий повтор N разів → controls_repeat_ext
-        // (незалежно від імені змінної; range(N) = від 0 до N-1, ім'я не зберігається)
-        const xml = `<block type="controls_repeat_ext"><value name="TIMES">${parseExpr(parts[0])}</value>${stmt}</block>`;
-        return { xml, nextIdx: body.nextIdx };
-    }
-    if (parts.length === 2) {
-        // range(FROM, TO+1) → controls_for_simple
-        // Знімаємо "+1" якщо є, бо controls_for_simple генератор додає сам
-        const toRaw = parts[1].trim();
-        const toClean = toRaw.replace(/\s*\+\s*1$/, '').trim();
-        const xml = `<block type="controls_for_simple">${varXml}<value name="FROM">${parseExpr(parts[0])}</value><value name="TO">${parseExpr(toClean)}</value>${stmt}</block>`;
-        return { xml, nextIdx: body.nextIdx };
-    }
-    if (parts.length === 3) {
-        // range(FROM, TO+1, STEP) → controls_for
-        const toRaw = parts[1].trim();
-        const toClean = toRaw.replace(/\s*\+\s*1$/, '').trim();
-        const xml = `<block type="controls_for">${varXml}<value name="FROM">${parseExpr(parts[0])}</value><value name="TO">${parseExpr(toClean)}</value><value name="BY">${parseExpr(parts[2])}</value>${stmt}</block>`;
-        return { xml, nextIdx: body.nextIdx };
-    }
-    return parseRawCompound(lines, idx - 1, indent);
-}
-
 function parseDef(lines, idx, indent) {
     const m = lines[idx].text.match(/^def\s+(\w+)\s*\((.*)\):$/);
     idx++;
@@ -1038,24 +869,11 @@ function parseOneStatement(lines, idx, indent) {
     }
 
     if (m = text.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/)) {
-        // math_change: x = x + delta — має бути ДО загального variables_set
-        const varName = m[1];
-        const rhs = m[2].trim();
-        const mcPlus  = rhs.match(new RegExp(`^${varName}\\s*\\+\\s*(.+)$`));
-        const mcMinus = rhs.match(new RegExp(`^${varName}\\s*-\\s*(.+)$`));
-        if (mcPlus) {
-            return { xml: `<block type="math_change"><field name="VAR">${escapeXml(varName)}</field><value name="DELTA">${parseExpr(mcPlus[1])}</value></block>`, nextIdx: idx + 1 };
-        }
-        if (mcMinus) {
-            // x = x - delta → math_change з від'ємним DELTA (-(delta))
-            return { xml: `<block type="math_change"><field name="VAR">${escapeXml(varName)}</field><value name="DELTA"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="math_number"><field name="NUM">0</field></block></value><value name="B">${parseExpr(mcMinus[1])}</value></block></value></block>`, nextIdx: idx + 1 };
-        }
         return { xml: `<block type="variables_set"><field name="VAR">${escapeXml(m[1])}</field><value name="VALUE">${parseExpr(m[2])}</value></block>`, nextIdx: idx + 1 };
     }
     if (m = text.match(/^([A-Za-z_]\w*)\((.*)\)$/)) return leaf('call_function', { FUNC: m[1], ARGS: m[2] }, idx);
 
     if (/^for _ in range\(.+\):$/.test(text)) return parseForRepeat(lines, idx, indent);
-    if (/^for [A-Za-z_]\w* in range\(.+\):$/.test(text)) return parseForRange(lines, idx, indent);
     if (/^while\s+.+:$/.test(text)) return parseWhile(lines, idx, indent);
     if (/^if\s+.+:$/.test(text)) return parseIfChain(lines, idx, indent);
     if (/^def\s+\w+\s*\(.*\):$/.test(text)) return parseDef(lines, idx, indent);
@@ -1121,13 +939,14 @@ async function runCode() {
         }
     }
 
-    // FIX: якщо Skulpt (CDN) не завантажився (заблокована мережа/adblock),
-    // раніше тут кидався неперехоплений ReferenceError і кнопка "Run"
-    // просто мовчки "не працювала" без жодного пояснення. Тепер даємо
-    // зрозуміле повідомлення.
+    // FIX: якщо Skulpt (тепер vendored локально, js/vendor/skulpt/) з
+    // якоїсь причини не завантажився (пошкоджений файл, розширення
+    // браузера блокує скрипти тощо), раніше тут кидався неперехоплений
+    // ReferenceError і кнопка "Run" просто мовчки "не працювала" без
+    // жодного пояснення. Тепер даємо зрозуміле повідомлення.
     if (typeof Sk === 'undefined') {
         setStatus(t('status_execution_error'), 'error');
-        outf('[Помилка] Бібліотеку Skulpt не вдалось завантажити (перевірте інтернет-з’єднання або дозвольте домен cdn.jsdelivr.net) — виконання Python неможливе.');
+        outf('[Помилка] Бібліотеку Skulpt не вдалось завантажити (файли js/vendor/skulpt/ відсутні або заблоковані розширенням браузера) — виконання Python неможливе.');
         return;
     }
 
@@ -1254,6 +1073,26 @@ function newProject() {
 // розтягувалась замість прихованих "Блоків" (як і раніше), або "Виконання"
 // займало решту простору, якщо приховані обидві інші.
 const PANEL_IDS = ['blocks', 'code', 'output'];
-const PANEL_BASE_WIDTH = { blocks: '1fr', code: '420px', output: '520px' };
+// Базові (початкові) ширини панелей "Код"/"Виконання" в пікселях; "Блоки"
+// ширини не має — вона завжди займає решту вільного простору (flex: 1).
+const PANEL_BASE_WIDTH = { code: 420, output: 520 };
+const PANEL_MIN_WIDTH = 220;
+// Поточні (можливо, змінені перетягуванням роздільника) ширини панелей —
+// окремий мутабельний об'єкт, щоб не втратити початкові значення за
+// замовчуванням (напр. для можливого "скинути розмір" у майбутньому).
+const panelWidth = Object.assign({}, PANEL_BASE_WIDTH);
+const PANEL_WIDTH_STORAGE_KEY = 'uPy.panelWidths';
+(function restorePanelWidths() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(PANEL_WIDTH_STORAGE_KEY) || 'null');
+        if (saved && typeof saved === 'object') {
+            ['code', 'output'].forEach(id => {
+                if (typeof saved[id] === 'number' && saved[id] >= PANEL_MIN_WIDTH) panelWidth[id] = saved[id];
+            });
+        }
+    } catch (e) { /* ігноруємо биту збережену ширину */ }
+})();
+function savePanelWidths() {
+    try { localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, JSON.stringify(panelWidth)); } catch (e) { /* ignore */ }
+}
 const panelVisible = { blocks: true, code: true, output: true };
-

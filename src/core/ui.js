@@ -16,25 +16,120 @@ function updatePanelLayout() {
         const panel = document.querySelector(`.panel[data-panel="${id}"]`);
         if (panel) panel.style.display = panelVisible[id] ? '' : 'none';
     });
+    // Роздільники між панелями показуємо лише коли ОБИДВІ сусідні панелі
+    // видимі — тягнути межу між панеллю й "порожнечею" сенсу немає.
+    document.querySelectorAll('.panel-resizer').forEach(res => {
+        const [a, b] = (res.dataset.resizer || '').split('-');
+        res.hidden = !(panelVisible[a] && panelVisible[b]);
+    });
     // БАГФІКС: на вузьких екранах CSS (@media max-width:1200px) переводить
-    // .wrap в один стовпець — але інлайн-стиль з JS має вищий пріоритет і
-    // перекривав би це. На мобільному просто не чіпаємо
-    // grid-template-columns (даємо CSS-медіазапиту керувати самому).
+    // .wrap в один стовпець (flex-direction:column, ширина 100%) — інлайн
+    // width/flex з JS мають нижчий пріоритет за "!important" у медіа-запиті,
+    // але про всяк випадок явно скидаємо їх, щоб нічого не залишалось від
+    // десктопного розкладу.
     if (window.matchMedia && window.matchMedia('(max-width: 1200px)').matches) {
-        wrap.style.gridTemplateColumns = '';
+        PANEL_IDS.forEach(id => {
+            const panel = document.querySelector(`.panel[data-panel="${id}"]`);
+            if (panel) { panel.style.width = ''; panel.style.flex = ''; }
+        });
         return;
     }
-    if (!visibleIds.length) { wrap.style.gridTemplateColumns = '1fr'; return; }
-    // Якщо "Блоки" приховані — "Код" стає гнучким (1fr) замість них.
+    if (!visibleIds.length) return;
+    // Якщо "Блоки" приховані — "Код" стає гнучким (flex:1) замість них.
     // Якщо і "Блоки", і "Код" приховані — гнучким стає "Виконання".
-    const widths = Object.assign({}, PANEL_BASE_WIDTH);
-    if (!panelVisible.blocks) {
-        if (panelVisible.code) widths.code = '1fr';
-        else widths.output = '1fr';
-    }
-    wrap.style.gridTemplateColumns = visibleIds.map(id => widths[id]).join(' ');
+    let flexibleId = 'blocks';
+    if (!panelVisible.blocks) flexibleId = panelVisible.code ? 'code' : 'output';
+    PANEL_IDS.forEach(id => {
+        const panel = document.querySelector(`.panel[data-panel="${id}"]`);
+        if (!panel || !panelVisible[id]) return;
+        if (id === flexibleId) {
+            panel.style.flex = '1 1 0';
+            panel.style.width = '';
+        } else {
+            panel.style.flex = '0 0 auto';
+            panel.style.width = panelWidth[id] + 'px';
+        }
+    });
 }
 window.addEventListener('resize', debounce(updatePanelLayout, 150));
+
+// ================= РОЗДІЛЬНИКИ ПАНЕЛЕЙ: перетягування мишею =================
+// Вимога: наводимо курсор на межу між панелями "Блоки"/"Код"/"Виконання" й
+// перетягуємо — одна панель ширшає, сусідня звужується (і навпаки).
+// "Гнучка" панель (зазвичай "Блоки" — flex:1, займає решту простору) не
+// має власної px-ширини, тому для пари [гнучка+фіксована] рухаємо лише
+// фіксовану (гнучка сама "доросте"/"стисне" робочу область). А коли ОБИДВІ
+// сусідні панелі фіксовані (типово "Код"↔"Виконання", коли "Блоки" видимі
+// й самі забирають решту простору) — передаємо ширину напряму одна одній,
+// щоб зміна не залежала від гнучкої панелі десь збоку.
+function currentFlexiblePanelId() {
+    if (panelVisible.blocks) return 'blocks';
+    if (panelVisible.code) return 'code';
+    return 'output';
+}
+function setupPanelResizers() {
+    document.querySelectorAll('.panel-resizer').forEach(resizer => {
+        const [leftId, rightId] = (resizer.dataset.resizer || '').split('-');
+        resizer.addEventListener('pointerdown', (e) => {
+            if (resizer.hidden) return;
+            e.preventDefault();
+            const flexId = currentFlexiblePanelId();
+            const leftPanel = document.querySelector(`.panel[data-panel="${leftId}"]`);
+            const rightPanel = document.querySelector(`.panel[data-panel="${rightId}"]`);
+            if (!leftPanel || !rightPanel) return;
+            const leftFixed = leftId !== flexId;
+            const rightFixed = rightId !== flexId;
+            const startX = e.clientX;
+            const startLeftWidth = leftPanel.getBoundingClientRect().width;
+            const startRightWidth = rightPanel.getBoundingClientRect().width;
+            const wrapWidth = document.querySelector('.wrap')?.getBoundingClientRect().width || window.innerWidth;
+            const maxFixedWidth = Math.round(wrapWidth * 0.75);
+            resizer.classList.add('is-dragging');
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'col-resize';
+            resizer.setPointerCapture(e.pointerId);
+
+            function onMove(ev) {
+                const delta = ev.clientX - startX;
+                if (leftFixed && rightFixed) {
+                    // Обидві сусідні панелі фіксовані — трейд напряму:
+                    // вправо росте ліва й на стільки ж звужується права.
+                    const maxPositive = startRightWidth - PANEL_MIN_WIDTH;
+                    const maxNegative = -(startLeftWidth - PANEL_MIN_WIDTH);
+                    const clamped = Math.max(maxNegative, Math.min(maxPositive, delta));
+                    panelWidth[leftId] = Math.round(startLeftWidth + clamped);
+                    panelWidth[rightId] = Math.round(startRightWidth - clamped);
+                    leftPanel.style.width = panelWidth[leftId] + 'px';
+                    rightPanel.style.width = panelWidth[rightId] + 'px';
+                } else {
+                    // Один бік — гнучка панель ("Блоки"): рухаємо тільки
+                    // фіксовану, гнучка сама займе решту простору сама.
+                    const fixedId = leftFixed ? leftId : rightId;
+                    const fixedPanel = leftFixed ? leftPanel : rightPanel;
+                    const startWidth = leftFixed ? startLeftWidth : startRightWidth;
+                    const signedDelta = leftFixed ? delta : -delta;
+                    const next = Math.max(PANEL_MIN_WIDTH, Math.min(maxFixedWidth, Math.round(startWidth + signedDelta)));
+                    panelWidth[fixedId] = next;
+                    fixedPanel.style.width = next + 'px';
+                }
+                if (handleBlocklyResize) handleBlocklyResize();
+            }
+            function onUp(ev) {
+                resizer.releasePointerCapture(ev.pointerId);
+                resizer.classList.remove('is-dragging');
+                document.body.style.userSelect = '';
+                document.body.style.cursor = '';
+                resizer.removeEventListener('pointermove', onMove);
+                resizer.removeEventListener('pointerup', onUp);
+                resizer.removeEventListener('pointercancel', onUp);
+                savePanelWidths();
+            }
+            resizer.addEventListener('pointermove', onMove);
+            resizer.addEventListener('pointerup', onUp);
+            resizer.addEventListener('pointercancel', onUp);
+        });
+    });
+}
 
 function setPanelVisible(id, visible, btnId, labelShow, labelHide) {
     panelVisible[id] = visible;
@@ -42,7 +137,7 @@ function setPanelVisible(id, visible, btnId, labelShow, labelHide) {
     if (btn) btn.textContent = visible ? labelHide : labelShow;
     updatePanelLayout();
     // БАГФІКС: приховування/показ БУДЬ-ЯКОЇ панелі змінює доступну ширину
-    // для панелі "Блоки" (через перерахунок grid-template-columns), а не
+    // для панелі "Блоки" (через перерахунок flex-ширин панелей), а не
     // лише коли ховають/показують саму панель блоків. Blockly не стежить
     // за розміром свого контейнера сам — тому SVG-канва лишалась старого
     // розміру, а вільний простір навколо просто показував чорний фон
@@ -183,6 +278,7 @@ initMenu();
     closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 })();
+setupPanelResizers();
 updatePanelLayout();
 
 const codeEl = document.getElementById('code');

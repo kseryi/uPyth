@@ -89,17 +89,17 @@ function defineBlocksAndGenerators() {
         { type: "flag_start", message0: "🏁 " + t('blk_flag_start'), previousStatement: null, nextStatement: null, colour: '#4CAF50', tooltip: t('blktip_flag_start'), hat: "cap" },
         { type: "import_turtle", message0: "import turtle", previousStatement: null, nextStatement: null, colour: '#343BBA', tooltip: t('blktip_import_turtle') },
         { type: "create_turtle", message0: t('blk_create_turtle'), args0: [{ type: "field_input", name: "NAME", text: "t" }], previousStatement: null, nextStatement: null, colour: '#e8b202', tooltip: t('blktip_create_turtle') },
-        { type: "set_speed", message0: t('blk_set_speed'), args0: [{ type: "field_input", name: "NAME", text: "t" }, { type: "input_value", name: "SPEED" }], previousStatement: null, nextStatement: null, colour: '#e8b202' },
-        { type: "t_forward", message0: t('blk_t_forward'), args0: [{ type: "input_value", name: "DIST" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
-        { type: "t_backward", message0: t('blk_t_backward'), args0: [{ type: "input_value", name: "DIST" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
-        { type: "t_left", message0: t('blk_t_left'), args0: [{ type: "input_value", name: "ANGLE" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
-        { type: "t_right", message0: t('blk_t_right'), args0: [{ type: "input_value", name: "ANGLE" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
+        { type: "set_speed", message0: t('blk_set_speed'), args0: [{ type: "field_input", name: "NAME", text: "t" }, { type: "input_value", name: "SPEED", check: "Number" }], previousStatement: null, nextStatement: null, colour: '#e8b202' },
+        { type: "t_forward", message0: t('blk_t_forward'), args0: [{ type: "input_value", name: "DIST", check: "Number" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
+        { type: "t_backward", message0: t('blk_t_backward'), args0: [{ type: "input_value", name: "DIST", check: "Number" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
+        { type: "t_left", message0: t('blk_t_left'), args0: [{ type: "input_value", name: "ANGLE", check: "Number" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
+        { type: "t_right", message0: t('blk_t_right'), args0: [{ type: "input_value", name: "ANGLE", check: "Number" }], previousStatement: null, nextStatement: null, colour: '#343BBA' },
         { type: "t_penup", message0: t('blk_t_penup'), previousStatement: null, nextStatement: null, colour: "#22c55e" },
         { type: "t_pendown", message0: t('blk_t_pendown'), previousStatement: null, nextStatement: null, colour: "#22c55e" },
-        { type: "t_pensize", message0: t('blk_t_pensize'), args0: [{ type: "input_value", name: "SIZE" }], previousStatement: null, nextStatement: null, colour: "#22c55e" },
-        { type: "t_color", message0: t('blk_t_color'), args0: [{ type: "input_value", name: "COLOR" }], previousStatement: null, nextStatement: null, colour: "#22c55e" },
-        { type: "t_square", message0: t('blk_t_square'), args0: [{ type: "input_value", name: "A" }], previousStatement: null, nextStatement: null, colour: 230 },
-        { type: "t_circle", message0: t('blk_t_circle'), args0: [{ type: "input_value", name: "R" }], previousStatement: null, nextStatement: null, colour: 230 },
+        { type: "t_pensize", message0: t('blk_t_pensize'), args0: [{ type: "input_value", name: "SIZE", check: "Number" }], previousStatement: null, nextStatement: null, colour: "#22c55e" },
+        { type: "t_color", message0: t('blk_t_color'), args0: [{ type: "input_value", name: "COLOR", check: "String" }], previousStatement: null, nextStatement: null, colour: "#22c55e" },
+        { type: "t_square", message0: t('blk_t_square'), args0: [{ type: "input_value", name: "A", check: "Number" }], previousStatement: null, nextStatement: null, colour: 230 },
+        { type: "t_circle", message0: t('blk_t_circle'), args0: [{ type: "input_value", name: "R", check: "Number" }], previousStatement: null, nextStatement: null, colour: 230 },
 
         {
           type: "define_function",
@@ -129,7 +129,7 @@ function defineBlocksAndGenerators() {
           ],
           output: null, colour: "#a855f7", tooltip: t('blktip_function_parameter') },
 
-        { type: "t_fillcolor_manual", message0: t('blk_t_fillcolor_manual'), args0: [{ type: "input_value", name: "COLOR" }], previousStatement: null, nextStatement: null, colour: "#22c55e", tooltip: t('blktip_t_fillcolor_manual') },
+        { type: "t_fillcolor_manual", message0: t('blk_t_fillcolor_manual'), args0: [{ type: "input_value", name: "COLOR", check: "String" }], previousStatement: null, nextStatement: null, colour: "#22c55e", tooltip: t('blktip_t_fillcolor_manual') },
         { type: "t_fillcolor_list", message0: t('blk_t_fillcolor_list'), args0: [{ type: "field_dropdown", name: "COLOR", options: [
             ["red", "red"], ["blue", "blue"], ["green", "green"], ["yellow", "yellow"], ["orange", "orange"],
             ["purple", "purple"], ["pink", "pink"], ["brown", "brown"], ["black", "black"], ["white", "white"],
@@ -140,7 +140,7 @@ function defineBlocksAndGenerators() {
         { type: "t_end_fill", message0: t('blk_t_end_fill'), previousStatement: null, nextStatement: null, colour: "#22c55e", tooltip: t('blktip_t_end_fill') },
 
         // ===== IMPROVEMENT #5: додаткові блоки для початківців =====
-        // (variables_get/set, controls_for, math_change,
+        // (variables_get/set, controls_for, math_change, text_join,
         // text_length, math_single, math_round, math_modulo,
         // controls_flow_statements) — це вбудовані типи блоків Blockly,
         // але генератор для них написано власний, нижче (PY[...]), а не
@@ -280,7 +280,7 @@ function defineBlocksAndGenerators() {
     Blockly.Blocks['text_literal'] = {
         init: function() {
             this.appendDummyInput().appendField(new Blockly.FieldTextInput(t('blk_text_literal_default')), "TEXT");
-            this.setOutput(true, null);  // null = будь-який тип: дозволяє вставляти в math_arithmetic та інші блоки зі setCheck('Number')
+            this.setOutput(true, "String");
             this.setColour('#22c55e');
             this.setTooltip(t('blktip_text_literal'));
         }
@@ -318,6 +318,15 @@ function defineBlocksAndGenerators() {
         const delta = valueToCode(block, 'DELTA', '1');
         return `${varName} = ${varName} + ${delta}\n`;
     };
+    PY['text_join'] = block => {
+        const parts = [];
+        let i = 0;
+        while (block.getInput('ADD' + i)) {
+            parts.push(`str(${valueToCode(block, 'ADD' + i, '""')})`);
+            i++;
+        }
+        return [parts.length ? parts.join(' + ') : '""', 0];
+    };
     PY['text_length'] = block => [`len(${valueToCode(block, 'VALUE', '""')})`, 0];
 
     // ---------- Група "Введення/Input" (бузковий колір, овальна форма) ----------
@@ -331,7 +340,7 @@ function defineBlocksAndGenerators() {
     Blockly.Blocks['input_value'] = {
         init: function() {
             this.appendValueInput('PROMPT').setCheck(null).appendField('input');
-            this.setOutput(true, null);
+            this.setOutput(true, 'String');
             this.setColour(INPUT_GROUP_COLOUR);
             this.setTooltip(t('blktip_input_value'));
         }
@@ -341,7 +350,7 @@ function defineBlocksAndGenerators() {
     Blockly.Blocks['to_int'] = {
         init: function() {
             this.appendValueInput('VALUE').setCheck(null).appendField('int');
-            this.setOutput(true, null);
+            this.setOutput(true, 'Number');
             this.setColour(INPUT_GROUP_COLOUR);
             this.setTooltip(t('blktip_to_int'));
         }
@@ -351,7 +360,7 @@ function defineBlocksAndGenerators() {
     Blockly.Blocks['to_float'] = {
         init: function() {
             this.appendValueInput('VALUE').setCheck(null).appendField('float');
-            this.setOutput(true, null);
+            this.setOutput(true, 'Number');
             this.setColour(INPUT_GROUP_COLOUR);
             this.setTooltip(t('blktip_to_float'));
         }
@@ -361,7 +370,7 @@ function defineBlocksAndGenerators() {
     Blockly.Blocks['to_str'] = {
         init: function() {
             this.appendValueInput('VALUE').setCheck(null).appendField('str');
-            this.setOutput(true, null);
+            this.setOutput(true, 'String');
             this.setColour(INPUT_GROUP_COLOUR);
             this.setTooltip(t('blktip_to_str'));
         }
@@ -503,30 +512,6 @@ function defineBlocksAndGenerators() {
         return `for ${varName} in range(${from}, ${to} + 1, ${by}):\n${statementToCode(block, 'DO')}`;
     };
 
-    // controls_for_simple: for i in range(FROM, TO + 1) — без явного кроку
-    // Pedagogically cleaner for beginners; step is always 1 (Python default).
-    Blockly.Blocks['controls_for_simple'] = {
-        init: function() {
-            this.appendDummyInput().appendField(t('blk_for_simple_prefix')).appendField(new Blockly.FieldVariable('i'), 'VAR').appendField(t('blk_for_simple_from'));
-            this.appendValueInput('FROM').setCheck(null);
-            this.appendDummyInput().appendField(t('blk_for_simple_to'));
-            this.appendValueInput('TO').setCheck(null);
-            this.appendStatementInput('DO').setCheck(null).appendField(t('blk_for_simple_do'));
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour('#ff6680');
-            this.setTooltip(t('blktip_for_simple'));
-            this.setInputsInline(true);
-        }
-    };
-    PY['controls_for_simple'] = function(block) {
-        const varField = block.getField('VAR');
-        const varName = varField ? varField.getText() : 'i';
-        const from = valueToCode(block, 'FROM', '1');
-        const to = valueToCode(block, 'TO', '10');
-        return `for ${varName} in range(${from}, ${to} + 1):\n${statementToCode(block, 'DO')}`;
-    };
-
     // Function blocks
     PY['define_function'] = function(block) {
         const func = toIdentifier(block.getFieldValue('FUNC_NAME'), 'myfunc');
@@ -600,4 +585,3 @@ function registerFunctionBlockWatcher() {
         });
     });
 }
-
