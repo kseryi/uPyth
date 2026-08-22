@@ -46,9 +46,6 @@ header h1 { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
     cursor: pointer;
     flex-shrink: 0;
 }
-/* Кнопка "Уроки" — ширша за стандартні квадратні кнопки навбару,
-   бо містить текстову мітку поруч із іконкою */
-#lessonsBtn { width: auto; padding: 0 10px; font-size: 13px; }
 .hamburger-btn:hover { background: var(--muted); }
 
 .menu-dropdown {
@@ -157,16 +154,17 @@ header h1 { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
 
 .wrap {
     height: calc(100% - 54px);
-    display: grid;
-    grid-template-columns: 1fr 420px 520px;
+    display: flex;
+    align-items: stretch;
     gap: 10px;
     padding: 10px;
-    transition: grid-template-columns .15s ease;
 }
-/* Видимість/ширини колонок тепер обчислює JS (updatePanelLayout() в
-   app.js) — кожна з трьох панелей ховається незалежно через
-   .panel[data-panel] { display:none } + перерахований
-   grid-template-columns, замість фіксованого CSS-класу на весь .wrap. */
+/* Видимість панелей і їхню ширину тепер обчислює JS (updatePanelLayout()
+   в ui.js) — кожна з трьох панелей ховається незалежно через
+   .panel[data-panel] { display:none }, а ширини "Код"/"Виконання"
+   задаються інлайн (px) і змінюються перетягуванням роздільників
+   (.panel-resizer, див. setupPanelResizers() в ui.js). Панель "Блоки"
+   завжди займає решту вільного простору (flex: 1 1 0). */
 
 .panel {
     background: var(--panel);
@@ -175,7 +173,39 @@ header h1 { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 }
+.panel[data-panel="blocks"] { flex: 1 1 0; min-width: 260px; }
+.panel[data-panel="code"],
+.panel[data-panel="output"] { flex: 0 0 auto; min-width: 220px; max-width: 75vw; }
+
+/* ================= Роздільник ширини панелей (drag-to-resize) =================
+   Тонка вертикальна смужка між панелями; наведення миші на неї й
+   перетягування (mousedown → mousemove → mouseup, обробники в ui.js)
+   змінює ширину сусідньої панелі. */
+.panel-resizer {
+    flex: 0 0 8px;
+    width: 8px;
+    align-self: stretch;
+    cursor: col-resize;
+    position: relative;
+    touch-action: none;
+}
+.panel-resizer::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 50%;
+    width: 3px;
+    transform: translateX(-50%);
+    background: var(--muted);
+    border-radius: 3px;
+    transition: background-color .15s ease;
+}
+.panel-resizer:hover::after,
+.panel-resizer.is-dragging::after { background: var(--accent); }
+.panel-resizer[hidden] { display: none; }
 
 .panel header {
     background: rgba(255, 255, 255, .03);
@@ -318,8 +348,16 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
 }
 
 @media (max-width: 1200px) {
-    .wrap { grid-template-columns: 1fr; height: auto; }
-    .panel { min-height: 380px; }
+    .wrap { flex-direction: column; height: auto; }
+    .panel,
+    .panel[data-panel="code"],
+    .panel[data-panel="output"] {
+        min-height: 380px;
+        width: 100% !important;
+        max-width: none !important;
+        flex: 1 1 auto !important;
+    }
+    .panel-resizer { display: none !important; }
 }
 
 /* ================= Кнопка "➕" розширень (синій кружечок) ================= */
@@ -370,8 +408,6 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
     padding: 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
-/* Вузькіший варіант модального вікна (довідка, help) — ширина 560px */
-.big-modal-box--narrow { width: min(560px, 100%); }
 .big-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .big-modal-header h3 { margin: 0; font-size: 17px; color: #e5e7eb; }
 .big-modal-close {
@@ -503,6 +539,16 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
 .pico-file-row:hover { background: rgba(255,255,255,.05); }
 .pico-file-row button { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
 .pico-hint { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+/* Попередження про відсутність Web Serial у поточному браузері — трохи
+   виразніше за звичайну сіру підказку, щоб не загубитись серед іншого
+   тексту панелі. */
+.pico-agent-notice {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, .08);
+    border: 1px solid rgba(251, 191, 36, .35);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
 
 
 /* ================= Тост-сповіщення (правий нижній кут) ================= */
@@ -571,6 +617,92 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
 .tile-badge.missing { background: rgba(245,158,11,.15); color: #f59e0b; }
 .tile-import-btn { font-size: 10px; padding: 3px 8px; margin-top: 2px; }
 
+/* ================= Дизайн-оновлення: панель команд (toolbox) у вигляді
+   вертикальної бічної панелі з картками "іконка над підписом" =================
+   Вимога: привести вигляд середовища до референсного макету (темна вузька
+   бічна панель категорій зліва від робочої області блоків, з великою
+   іконкою й підписом під нею, активна категорія — підсвічена картка).
+   Це CSS-перевизначення офіційних класів Blockly-toolbox (zelos-рендерер):
+   .blocklyToolbox / .blocklyToolboxCategory / .blocklyToolboxCategoryContainer /
+   .blocklyToolboxCategoryIcon / .blocklyToolboxCategoryLabel /
+   .blocklyToolboxSelected — самі класи Blockly не чіпаємо, лише стилізуємо. */
+.blocklyToolbox {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 108px !important;
+    padding: 14px 6px !important;
+    gap: 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.blocklyToolboxContents {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px;
+    width: 100%;
+}
+.blocklyToolboxCategory { width: 100%; }
+.blocklyToolboxCategoryContainer {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    padding: 10px 4px !important;
+    border-radius: 14px !important;
+    cursor: pointer;
+    transition: background-color .15s ease;
+}
+.blocklyToolboxCategoryContainer:hover { background: rgba(255, 255, 255, .06) !important; }
+.blocklyToolboxCategoryIcon {
+    width: 26px !important;
+    height: 26px !important;
+    margin: 0 !important;
+}
+.blocklyToolboxCategoryLabel {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    max-width: 92px;
+}
+/* Активна (вибрана) категорія — синя підсвічена картка, як на макеті. */
+.blocklyToolboxCategory.blocklyToolboxSelected .blocklyToolboxCategoryContainer,
+.blocklyToolboxCategoryContainer.blocklyToolboxSelected {
+    background: var(--accent) !important;
+}
+.blocklyToolboxCategory.blocklyToolboxSelected .blocklyToolboxCategoryLabel,
+.blocklyToolboxCategoryContainer.blocklyToolboxSelected .blocklyToolboxCategoryLabel {
+    color: #ffffff !important;
+}
+
+/* ================= Дизайн-оновлення: спрощений header =================
+   На макеті у шапці лишаються лише 2 перемикачі видимості (Блоки/Код) та
+   не показані статус-пігулка й перемикач виводу — приховуємо їх у стилях,
+   не видаляючи з розмітки/логіки (щоб не ламати JS, який на них посилається). */
+#status.status {
+    display: none !important;
+}
+/* Статус більше не штовхає праву групу (Уроки/?/мова) вправо — цю роль
+   тепер бере на себе перша кнопка правої групи. */
+#lessonsBtn { margin-left: auto; }
+
+/* ================= Дизайн-оновлення: акцентна кнопка "Запустити" =================
+   На макеті кнопка запуску — суцільна синя "пігулка", помітно виділена
+   серед інших (темних, з рамкою) кнопок панелі виконання. */
+#runBtn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0b1220;
+    font-weight: 700;
+    padding: 9px 18px;
+    border-radius: 12px;
+}
+#runBtn:hover { background: #4d8ff0; border-color: #4d8ff0; }
+
 /* ================= Заголовок групи в модальних вікнах (уроки, бібліотеки) ================= */
 .modal-group-header {
     display: flex;
@@ -582,12 +714,3 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
     margin: 14px 0 6px;
 }
 .modal-group-header:first-child { margin-top: 2px; }
-/* ================= Уроки — специфічні відступи UI ================= */
-/* Колишній lessons.js: soon.style.padding / grid.style.marginBottom */
-.lesson-group-soon { padding: 4px 4px 12px; }
-.lesson-tile-grid  { margin-bottom: 14px; }
-
-/* ================= Pico — заголовок секції бібліотек та підказка ================= */
-/* Колишній pico.js: style="margin-bottom:8px" / style="margin-left:auto" */
-.pico-libraries-header { margin-bottom: 8px; }
-.pico-hint--push-right  { margin-left: auto; }
