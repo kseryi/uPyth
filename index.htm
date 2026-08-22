@@ -28,9 +28,15 @@
   <script src="js/extensions.js"></script>
   <script src="js/lessons.js"></script>
 
-  <!-- Skulpt (виконання "голого" Python + Turtle у браузері) -->
-  <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+  <!-- Skulpt (виконання "голого" Python + Turtle у браузері).
+       Vendored локально (js/vendor/skulpt/, версія 1.2.0, точна та сама,
+       що раніше тягнулась з cdn.jsdelivr.net) — так само, як Blockly.
+       Причина: середовище має працювати офлайн "з коробки" (школи з
+       нестабільним інтернетом), і не залежати від доступності CDN.
+       Ліцензія Skulpt — js/vendor/skulpt/LICENSE, також зафіксована в
+       кореневому NOTICE.md. -->
+  <script src="js/vendor/skulpt/skulpt.min.js"></script>
+  <script src="js/vendor/skulpt/skulpt-stdlib.js"></script>
 </head>
 <body>
 <header>
@@ -56,13 +62,13 @@
   </div>
 
   <span id="status" class="status status-ready" data-i18n="status_ready">Ready</span>
-  <button id="lessonsBtn" class="hamburger-btn" title="Уроки" data-i18n-title="title_lessons">📖 <span data-i18n="btn_lessons">Lessons</span></button>
+  <button id="lessonsBtn" class="hamburger-btn" title="Уроки" data-i18n-title="title_lessons" style="width:auto;padding:0 10px;font-size:13px">📖 <span data-i18n="btn_lessons">Lessons</span></button>
   <button id="helpBtn" class="hamburger-btn" title="Про uPyth" data-i18n-title="title_help">?</button>
   <select id="langSelect" title="Interface language" data-i18n-title="title_lang_select"></select>
 </header>
 
 <div id="helpModal" class="big-modal-overlay" style="display:none">
-  <div class="big-modal-box big-modal-box--narrow">
+  <div class="big-modal-box" style="width:min(560px,100%)">
     <div class="big-modal-header">
       <h3 data-i18n="help_title">Про uPyth</h3>
       <button id="helpModalClose" class="big-modal-close">✕</button>
@@ -85,6 +91,12 @@
     </div>
   </section>
 
+  <!-- Роздільник ширини панелей (перетягування мишею): вимога — можливість
+       мишкою змінювати ширину зон "Блоки"/"Код"/"Виконання", наводячи
+       курсор на межу між ними. Логіка перетягування — в ui.js
+       (setupPanelResizers), сам роздільник — суто розмітка/CSS. -->
+  <div class="panel-resizer" data-resizer="blocks-code" title="Перетягніть, щоб змінити ширину"></div>
+
   <section class="panel" data-panel="code">
     <header><h2 class="htext" data-i18n="panel2_title">2) Python Code</h2></header>
     <div class="content">
@@ -99,6 +111,7 @@
     </div>
   </section>
 
+  <div class="panel-resizer" data-resizer="code-output" title="Перетягніть, щоб змінити ширину"></div>
 
   <section class="panel" data-panel="output">
     <header>
@@ -140,6 +153,7 @@
     <block type="text_literal">
         <field name="TEXT">Hello World</field>
     </block>
+    <block type="text_join"></block>
     <block type="text_length">
         <value name="VALUE"><shadow type="text"><field name="TEXT">abc</field></shadow></value>
     </block>
@@ -198,10 +212,6 @@
   <category name="Loops" data-i18n-cat="cat_loops" data-cat-id="loops" colour="#FFAA00">
     <block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value></block>
     <block type="controls_whileUntil"></block>
-    <block type="controls_for_simple">
-        <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-        <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
-    </block>
     <block type="controls_for">
         <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
         <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
