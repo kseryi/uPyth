@@ -34,7 +34,7 @@ npx serve .
 ```
 index.htm              Головна сторінка, toolbox (перелік блоків)
 style.css               Стилі інтерфейсу
-src/core/                Логіка середовища (колишній app.js, розбитий за відповідальністю)
+src/core/                Логіка середовища 
   generator.js            Ядро генератора Python (PY, valueToCode, statementToCode)
   blocks-turtle.js         Визначення "core"-блоків + модуль Turtle
   workspace.js              Синхронізація workspace↔код, запуск, збереження/завантаження
