@@ -684,6 +684,84 @@ function parseExpr(exprStrRaw) {
             return `<block type="math_random_int"><value name="FROM">${parseExpr(parts[0])}</value><value name="TO">${parseExpr(parts[1])}</value></block>`;
         }
     }
+
+    // ---------- Реалізація зворотного розпізнавання для groups
+    // "Введення" / математичних one-arg функцій / списків (специфікація —
+    // tests/parser.test.js) — раніше все це падало у фолбек
+    // raw_python_expr, хоча прямий генератор (blocks-turtle.js, PY[...])
+    // ці ж патерни вже породжує. Кожен regex тут — дзеркальне відображення
+    // відповідного PY['...'] вище по коду.
+
+    // ---------- Група "Введення" ----------
+    m = s.match(/^input\((.*)\)$/);
+    if (m) {
+        const promptXml = m[1].trim() === '' ? '' : `<value name="PROMPT">${parseExpr(m[1])}</value>`;
+        return `<block type="input_value">${promptXml}</block>`;
+    }
+    m = s.match(/^int\((.+)\)$/);
+    if (m) return `<block type="to_int"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^float\((.+)\)$/);
+    if (m) return `<block type="to_float"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^str\((.+)\)$/);
+    if (m) return `<block type="to_str"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+
+    // ---------- Математика: %, one-arg функції, округлення ----------
+    const modSplit = splitTopLevel(s, ['%'], false);
+    if (modSplit && s.slice(0, modSplit.i).trim() !== '' && s.slice(modSplit.i + 1).trim() !== '') {
+        const dividend = s.slice(0, modSplit.i).trim();
+        const divisor = s.slice(modSplit.i + 1).trim();
+        return `<block type="math_modulo"><value name="DIVIDEND">${parseExpr(dividend)}</value><value name="DIVISOR">${parseExpr(divisor)}</value></block>`;
+    }
+    const MATH_SINGLE_PATTERNS = [
+        [/^abs\((.+)\)$/, 'ABS'],
+        [/^math\.sqrt\((.+)\)$/, 'ROOT'],
+        [/^math\.log10\((.+)\)$/, 'LOG10'],
+        [/^math\.log\((.+)\)$/, 'LN'],
+        [/^math\.exp\((.+)\)$/, 'EXP'],
+        [/^math\.sin\(math\.radians\((.+)\)\)$/, 'SIN'],
+        [/^math\.cos\(math\.radians\((.+)\)\)$/, 'COS'],
+        [/^math\.tan\(math\.radians\((.+)\)\)$/, 'TAN'],
+    ];
+    for (const [re, op] of MATH_SINGLE_PATTERNS) {
+        m = s.match(re);
+        if (m) return `<block type="math_single"><field name="OP">${op}</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    }
+    m = s.match(/^round\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUND</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^math\.ceil\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUNDUP</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^math\.floor\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUNDDOWN</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+
+    // ---------- Списки/масиви ----------
+    // "(len(a) == 0)" (з опційними зовнішніми дужками) — ПЕРЕД плоским
+    // len(x) нижче і ПЕРЕД загальним розбором "==" (інакше впало б у
+    // звичайний logic_compare, а не в спеціалізований lists_isEmpty).
+    m = s.match(/^\(?\s*len\((.+)\)\s*==\s*0\s*\)?$/);
+    if (m) return `<block type="lists_isEmpty"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^len\((.+)\)$/);
+    if (m) return `<block type="text_length"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    // Список-літерал: [1, 2, 3] або порожній []
+    m = s.match(/^\[(.*)\]$/);
+    if (m) {
+        const inner = m[1].trim();
+        const items = inner === '' ? [] : splitTopLevelComma(inner);
+        const valuesXml = items.map((item, i) => `<value name="ADD${i}">${parseExpr(item)}</value>`).join('');
+        return `<block type="lists_create_with"><mutation items="${items.length}"></mutation>${valuesXml}</block>`;
+    }
+    // a.index(x) — спрощений патерн ручного коду (прямий генератор
+    // натомість породжує довший вираз з "in ... else 0", але для
+    // РОЗПІЗНАВАННЯ написаного вручну коду досить простого виклику).
+    m = s.match(/^([A-Za-z_]\w*)\.index\((.+)\)$/);
+    if (m) return `<block type="lists_indexOf"><field name="END">FIRST</field><value name="VALUE">${parseExpr(m[1])}</value><value name="FIND">${parseExpr(m[2])}</value></block>`;
+    // a[N] — лише простий випадок з цілим невід'ємним літералом-індексом
+    // (0-based, як у Python) → FROM_START з 1-based AT (як очікує
+    // прямий генератор: list[(AT)-1]).
+    m = s.match(/^([A-Za-z_]\w*)\[(\d+)\]$/);
+    if (m) {
+        const at = parseInt(m[2], 10) + 1;
+        return `<block type="lists_getIndex"><field name="MODE">GET</field><field name="WHERE">FROM_START</field><value name="VALUE">${parseExpr(m[1])}</value><value name="AT">${parseExpr(String(at))}</value></block>`;
+    }
     if (/^[A-Za-z_]\w*$/.test(s) && !PY_KEYWORDS.has(s)) {
         return `<block type="variables_get"><field name="VAR">${escapeXml(s)}</field></block>`;
     }
@@ -824,20 +902,20 @@ function parseOneStatement(lines, idx, indent) {
     if (text === 'break') return leaf('controls_flow_statements', { FLOW: 'BREAK' }, idx);
     if (text === 'continue') return leaf('controls_flow_statements', { FLOW: 'CONTINUE' }, idx);
 
-    if (m = text.match(/^(\w+)\s*=\s*turtle\.Turtle\(\)$/)) return leaf('create_turtle', { NAME: m[1] }, idx);
-    if (m = text.match(/^\w+\.speed\((.+)\)$/)) return leafWithValue('set_speed', { NAME: currentTurtleName }, { SPEED: m[1] }, idx);
-    if (m = text.match(/^\w+\.forward\((.+)\)$/)) return leafWithValue('t_forward', {}, { DIST: m[1] }, idx);
-    if (m = text.match(/^\w+\.backward\((.+)\)$/)) return leafWithValue('t_backward', {}, { DIST: m[1] }, idx);
-    if (m = text.match(/^\w+\.left\((.+)\)$/)) return leafWithValue('t_left', {}, { ANGLE: m[1] }, idx);
-    if (m = text.match(/^\w+\.right\((.+)\)$/)) return leafWithValue('t_right', {}, { ANGLE: m[1] }, idx);
+    if ((m = text.match(/^(\w+)\s*=\s*turtle\.Turtle\(\)$/))) return leaf('create_turtle', { NAME: m[1] }, idx);
+    if ((m = text.match(/^\w+\.speed\((.+)\)$/))) return leafWithValue('set_speed', { NAME: currentTurtleName }, { SPEED: m[1] }, idx);
+    if ((m = text.match(/^\w+\.forward\((.+)\)$/))) return leafWithValue('t_forward', {}, { DIST: m[1] }, idx);
+    if ((m = text.match(/^\w+\.backward\((.+)\)$/))) return leafWithValue('t_backward', {}, { DIST: m[1] }, idx);
+    if ((m = text.match(/^\w+\.left\((.+)\)$/))) return leafWithValue('t_left', {}, { ANGLE: m[1] }, idx);
+    if ((m = text.match(/^\w+\.right\((.+)\)$/))) return leafWithValue('t_right', {}, { ANGLE: m[1] }, idx);
     if (/^\w+\.penup\(\)$/.test(text)) return leaf('t_penup', {}, idx);
     if (/^\w+\.pendown\(\)$/.test(text)) return leaf('t_pendown', {}, idx);
-    if (m = text.match(/^\w+\.pensize\((.+)\)$/)) return leafWithValue('t_pensize', {}, { SIZE: m[1] }, idx);
-    if (m = text.match(/^\w+\.pencolor\((.+)\)$/)) return leafWithValue('t_color', {}, { COLOR: m[1] }, idx);
-    if (m = text.match(/^\w+\.fillcolor\((.+)\)$/)) return leafWithValue('t_fillcolor_manual', {}, { COLOR: m[1] }, idx);
+    if ((m = text.match(/^\w+\.pensize\((.+)\)$/))) return leafWithValue('t_pensize', {}, { SIZE: m[1] }, idx);
+    if ((m = text.match(/^\w+\.pencolor\((.+)\)$/))) return leafWithValue('t_color', {}, { COLOR: m[1] }, idx);
+    if ((m = text.match(/^\w+\.fillcolor\((.+)\)$/))) return leafWithValue('t_fillcolor_manual', {}, { COLOR: m[1] }, idx);
     if (/^\w+\.begin_fill\(\)$/.test(text)) return leaf('t_begin_fill', {}, idx);
     if (/^\w+\.end_fill\(\)$/.test(text)) return leaf('t_end_fill', {}, idx);
-    if (m = text.match(/^\w+\.circle\((.+)\)$/)) return leafWithValue('t_circle', {}, { R: m[1] }, idx);
+    if ((m = text.match(/^\w+\.circle\((.+)\)$/))) return leafWithValue('t_circle', {}, { R: m[1] }, idx);
 
     if (/^turtle\.register_shape\(/.test(text)) {
         const next = lines[idx + 1];
@@ -846,12 +924,12 @@ function parseOneStatement(lines, idx, indent) {
         }
         return { xml: rawLineXml(text), nextIdx: idx + 1 };
     }
-    if (m = text.match(/^\w+\.shape\("(\w+)"\)$/)) {
+    if ((m = text.match(/^\w+\.shape\("(\w+)"\)$/))) {
         if (ALLOWED_SHAPES.includes(m[1])) return leaf('turtle_shape', { SHAPE: m[1] }, idx);
         return { xml: rawLineXml(text), nextIdx: idx + 1 };
     }
 
-    if (m = text.match(/^print\((.*)\)$/)) return leafWithValue('print', {}, { VALUE: m[1] }, idx);
+    if ((m = text.match(/^print\((.*)\)$/))) return leafWithValue('print', {}, { VALUE: m[1] }, idx);
 
     // ХУК ДЛЯ РОЗШИРЕНЬ (вимога: "нехай кнопки/віджети не завжди
     // потрапляють у загальний 'set X to ...'"): tkinter.js/pico.js та інші
@@ -868,10 +946,10 @@ function parseOneStatement(lines, idx, indent) {
         } catch (e) { console.warn('Розпізнавач рядка кинув помилку, пропускаємо:', e); }
     }
 
-    if (m = text.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/)) {
+    if ((m = text.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
         return { xml: `<block type="variables_set"><field name="VAR">${escapeXml(m[1])}</field><value name="VALUE">${parseExpr(m[2])}</value></block>`, nextIdx: idx + 1 };
     }
-    if (m = text.match(/^([A-Za-z_]\w*)\((.*)\)$/)) return leaf('call_function', { FUNC: m[1], ARGS: m[2] }, idx);
+    if ((m = text.match(/^([A-Za-z_]\w*)\((.*)\)$/))) return leaf('call_function', { FUNC: m[1], ARGS: m[2] }, idx);
 
     if (/^for _ in range\(.+\):$/.test(text)) return parseForRepeat(lines, idx, indent);
     if (/^while\s+.+:$/.test(text)) return parseWhile(lines, idx, indent);
