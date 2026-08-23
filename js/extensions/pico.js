@@ -287,13 +287,13 @@ registerExtension('pico', function (ctx) {
 
             let m;
             // ---- neopixel ----
-            if (m = text.match(/^(\w+)\s*=\s*neopixel\.NeoPixel\(\s*machine\.Pin\((\d+)\)\s*,\s*(\d+)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*neopixel\.NeoPixel\(\s*machine\.Pin\((\d+)\)\s*,\s*(\d+)\s*\)$/)))
                 return { xml: leaf('neopixel_create', { VAR: m[1], PIN: m[2], COUNT: m[3] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\[(\d+)\]\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/))
+            if ((m = text.match(/^(\w+)\[(\d+)\]\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)))
                 return { xml: leaf('neopixel_set', { VAR: m[1], INDEX: m[2], R: m[3], G: m[4], B: m[5] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.write\(\)$/))
+            if ((m = text.match(/^(\w+)\.write\(\)$/)))
                 return { xml: leaf('neopixel_write', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^for _i in range\(len\((\w+)\)\):$/)) {
+            if ((m = text.match(/^for _i in range\(len\((\w+)\)\):$/))) {
                 const nxt = lines[idx + 1];
                 if (nxt && nxt.indent === indent + 1) {
                     const m2 = nxt.text.match(/^(\w+)\[_i\]\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
@@ -303,37 +303,37 @@ registerExtension('pico', function (ctx) {
                 }
             }
             // ---- ssd1306 ----
-            if (m = text.match(/^(\w+)\s*=\s*ssd1306\.SSD1306_I2C\(\s*(\d+)\s*,\s*(\d+)\s*,\s*machine\.I2C\(\s*(\d+)\s*,\s*scl=machine\.Pin\((\d+)\)\s*,\s*sda=machine\.Pin\((\d+)\)\s*\)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*ssd1306\.SSD1306_I2C\(\s*(\d+)\s*,\s*(\d+)\s*,\s*machine\.I2C\(\s*(\d+)\s*,\s*scl=machine\.Pin\((\d+)\)\s*,\s*sda=machine\.Pin\((\d+)\)\s*\)\s*\)$/)))
                 return { xml: leaf('oled_create', { VAR: m[1], WIDTH: m[2], HEIGHT: m[3], I2C_ID: m[4], SCL: m[5], SDA: m[6] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.fill\((0|1)\)$/))
+            if ((m = text.match(/^(\w+)\.fill\((0|1)\)$/)))
                 return { xml: leaf('oled_fill', { VAR: m[1], COLOR: m[2] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(new RegExp('^(\\w+)\\.text\\(\\s*' + STR_LIB + '\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\)$')))
+            if ((m = text.match(new RegExp('^(\\w+)\\.text\\(\\s*' + STR_LIB + '\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\)$'))))
                 return { xml: leaf('oled_text', { VAR: m[1], TEXT: unescapePyStrLib(m[2]), X: m[3], Y: m[4] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.show\(\)$/))
+            if ((m = text.match(/^(\w+)\.show\(\)$/)))
                 return { xml: leaf('oled_show', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
             // ---- lcd1602 ----
-            if (m = text.match(/^(\w+)\s*=\s*I2cLcd\(\s*machine\.I2C\(\s*(\d+)\s*,\s*scl=machine\.Pin\((\d+)\)\s*,\s*sda=machine\.Pin\((\d+)\)\s*\)\s*,\s*(\S+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*I2cLcd\(\s*machine\.I2C\(\s*(\d+)\s*,\s*scl=machine\.Pin\((\d+)\)\s*,\s*sda=machine\.Pin\((\d+)\)\s*\)\s*,\s*(\S+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)))
                 return { xml: leaf('lcd_create', { VAR: m[1], I2C_ID: m[2], SCL: m[3], SDA: m[4], ADDR: m[5], ROWS: m[6], COLS: m[7] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.clear\(\)$/))
+            if ((m = text.match(/^(\w+)\.clear\(\)$/)))
                 return { xml: leaf('lcd_clear', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.move_to\(\s*(\d+)\s*,\s*(\d+)\s*\)$/))
+            if ((m = text.match(/^(\w+)\.move_to\(\s*(\d+)\s*,\s*(\d+)\s*\)$/)))
                 return { xml: leaf('lcd_move_to', { VAR: m[1], COL: m[2], ROW: m[3] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(new RegExp('^(\\w+)\\.putstr\\(\\s*' + STR_LIB + '\\s*\\)$')))
+            if ((m = text.match(new RegExp('^(\\w+)\\.putstr\\(\\s*' + STR_LIB + '\\s*\\)$'))))
                 return { xml: leaf('lcd_putstr', { VAR: m[1], TEXT: unescapePyStrLib(m[2]) }, idx).xml, nextIdx: idx + 1 };
             // ---- dht ----
-            if (m = text.match(/^(\w+)\s*=\s*dht\.(DHT11|DHT22)\(\s*machine\.Pin\((\d+)\)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*dht\.(DHT11|DHT22)\(\s*machine\.Pin\((\d+)\)\s*\)$/)))
                 return { xml: leaf('dht_create', { VAR: m[1], TYPE: m[2], PIN: m[3] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.measure\(\)$/))
+            if ((m = text.match(/^(\w+)\.measure\(\)$/)))
                 return { xml: leaf('dht_measure', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
             // ---- hcsr04 ----
-            if (m = text.match(/^(\w+)\s*=\s*hcsr04\.HCSR04\(\s*trigger_pin=(\d+)\s*,\s*echo_pin=(\d+)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*hcsr04\.HCSR04\(\s*trigger_pin=(\d+)\s*,\s*echo_pin=(\d+)\s*\)$/)))
                 return { xml: leaf('hcsr04_create', { VAR: m[1], TRIG: m[2], ECHO: m[3] }, idx).xml, nextIdx: idx + 1 };
             // ---- servo ----
-            if (m = text.match(/^(\w+)\s*=\s*machine\.PWM\(\s*machine\.Pin\((\d+)\)\s*\)$/))
+            if ((m = text.match(/^(\w+)\s*=\s*machine\.PWM\(\s*machine\.Pin\((\d+)\)\s*\)$/)))
                 return { xml: leaf('servo_attach', { VAR: m[1], PIN: m[2] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.freq\((\d+)\)$/))
+            if ((m = text.match(/^(\w+)\.freq\((\d+)\)$/)))
                 return { xml: leaf('servo_set_freq', { VAR: m[1], HZ: m[2] }, idx).xml, nextIdx: idx + 1 };
-            if (m = text.match(/^(\w+)\.duty_u16\(int\(1638 \+ \((.+)\) \/ 180 \* 6553\)\)$/))
+            if ((m = text.match(/^(\w+)\.duty_u16\(int\(1638 \+ \((.+)\) \/ 180 \* 6553\)\)$/)))
                 return { xml: leafWithValue('servo_set_angle', { VAR: m[1] }, { ANGLE: m[2] }, idx).xml, nextIdx: idx + 1 };
 
             return null;
@@ -1012,13 +1012,13 @@ registerExtension('pico', function (ctx) {
         if (text === 'import time') return { xml: leaf('import_time', {}, idx).xml, nextIdx: idx + 1 };
 
         let m;
-        if (m = text.match(/^(\w+)\s*=\s*machine\.Pin\(\s*(\d+)\s*,\s*machine\.Pin\.(OUT|IN)\s*\)$/i))
+        if ((m = text.match(/^(\w+)\s*=\s*machine\.Pin\(\s*(\d+)\s*,\s*machine\.Pin\.(OUT|IN)\s*\)$/i)))
             return { xml: leaf('pico_pin_setup', { VAR: m[1], PIN: m[2], MODE: m[3].toUpperCase() }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.value\(\s*(0|1)\s*\)$/))
+        if ((m = text.match(/^(\w+)\.value\(\s*(0|1)\s*\)$/)))
             return { xml: leaf('pico_pin_value_set', { VAR: m[1], VALUE: m[2] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.toggle\(\)$/))
+        if ((m = text.match(/^(\w+)\.toggle\(\)$/)))
             return { xml: leaf('pico_pin_toggle', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^time\.sleep\((.+)\)$/))
+        if ((m = text.match(/^time\.sleep\((.+)\)$/)))
             return { xml: leafWithValue('pico_sleep', {}, { SECONDS: m[1] }, idx).xml, nextIdx: idx + 1 };
 
         return null;

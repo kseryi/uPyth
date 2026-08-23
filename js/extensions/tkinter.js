@@ -391,19 +391,19 @@ registerExtension('tkinter', function (ctx) {
 
     function matchTkinterCreate(line) {
         let m;
-        if (m = line.match(/^(\w+)\s*=\s*tk\.Tk\(\)$/)) return { varName: m[1], xml: leaf('tk_create_root', { VAR: m[1] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Label\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.Tk\(\)$/))) return { varName: m[1], xml: leaf('tk_create_root', { VAR: m[1] }, 0).xml };
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Label\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_label', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]) }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Button\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*command\\s*=\\s*(\\w+)\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Button\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*command\\s*=\\s*(\\w+)\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_button', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), ONCLICK: m[4] }, 0).xml };
-        if (m = line.match(/^(\w+)\s*=\s*tk\.Entry\(\s*([^)]+?)\s*\)$/))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.Entry\(\s*([^)]+?)\s*\)$/)))
             return { varName: m[1], xml: leaf('tk_create_entry', { VAR: m[1], PARENT: m[2] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Checkbutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Checkbutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_checkbutton', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), VARIABLE: m[4] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Radiobutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*,\\s*value\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Radiobutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*,\\s*value\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_radiobutton', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), VARIABLE: m[4], VALUE: unescapePyStr(m[5]) }, 0).xml };
-        if (m = line.match(/^(\w+)\s*=\s*tk\.IntVar\(\)$/)) return { varName: m[1], xml: leaf('tk_create_intvar', { VAR: m[1] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.StringVar\\(\\s*value\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.IntVar\(\)$/))) return { varName: m[1], xml: leaf('tk_create_intvar', { VAR: m[1] }, 0).xml };
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.StringVar\\(\\s*value\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_stringvar', { VAR: m[1], DEFAULT: unescapePyStr(m[2]) }, 0).xml };
         return null;
     }
@@ -417,13 +417,13 @@ registerExtension('tkinter', function (ctx) {
         if (text === 'from tkinter import messagebox') return { xml: leaf('import_tkinter_messagebox', {}, idx).xml, nextIdx: idx + 1 };
 
         let m;
-        if (m = text.match(new RegExp('^(\\w+)\\.title\\(\\s*' + STR + '\\s*\\)$')))
+        if ((m = text.match(new RegExp('^(\\w+)\\.title\\(\\s*' + STR + '\\s*\\)$'))))
             return { xml: leaf('tk_set_title', { VAR: m[1], TITLE: unescapePyStr(m[2]) }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.geometry\(\s*["'](\d+)[xX](\d+)["']\s*\)$/))
+        if ((m = text.match(/^(\w+)\.geometry\(\s*["'](\d+)[xX](\d+)["']\s*\)$/)))
             return { xml: leaf('tk_set_geometry', { VAR: m[1], W: m[2], H: m[3] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.mainloop\(\)$/))
+        if ((m = text.match(/^(\w+)\.mainloop\(\)$/)))
             return { xml: leaf('tk_mainloop', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(new RegExp('^messagebox\\.showinfo\\(\\s*' + STR + '\\s*,\\s*(.+)\\)$')))
+        if ((m = text.match(new RegExp('^messagebox\\.showinfo\\(\\s*' + STR + '\\s*,\\s*(.+)\\)$'))))
             return { xml: leafWithValue('tk_messagebox_showinfo', { TITLE: unescapePyStr(m[1]) }, { MESSAGE: m[2] }, idx).xml, nextIdx: idx + 1 };
 
         // "X = tk.Щось(...)" — можливо, одразу з прикріпленим ".pack(...)"
@@ -441,7 +441,7 @@ registerExtension('tkinter', function (ctx) {
 
         // Самостійний "X.pack(...)" (найпоширеніший випадок — саме так це
         // генерують блоки вище, окремим рядком/блоком).
-        if (m = text.match(/^(\w+)\.pack\((.*)\)$/))
+        if ((m = text.match(/^(\w+)\.pack\((.*)\)$/)))
             return { xml: leaf('tk_pack', { VAR: m[1], PADY: extractPady(m[2]) }, idx).xml, nextIdx: idx + 1 };
 
         return null;
