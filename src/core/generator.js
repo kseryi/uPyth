@@ -16,6 +16,10 @@ let currentTurtleName = 't';
 let handleBlocklyResize = null;
 let lastSyncedCode = null;   // останній код, з якого вже синхронізовано блоки
 let suppressAutoRefresh = false;   // FIX: вимикає проміжні refreshCode() під час масового перезавантаження блоків
+// FIX (round-trip bug): вимикає ПРОМІЖНІ виклики синхронізації
+// FUNC/PARAM_NAME/ONCLICK-дропдаунів (registerFunctionBlockWatcher() у
+// workspace.js) під час масового domToWorkspace() — див. коментар там.
+let suppressFunctionFieldSync = false;
 
 // =====================================================================
 // САМОДОСТАТНІЙ ГЕНЕРАТОР PYTHON (без залежності від CDN!)
