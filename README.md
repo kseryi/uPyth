@@ -1,5 +1,8 @@
 # uPyth
 
+[![CI](https://github.com/kseryi/uPyth/actions/workflows/ci.yml/badge.svg)](https://github.com/kseryi/uPyth/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Навчальне середовище для вивчення Python через блоки (Blockly) з
 підтримкою Turtle-графіки, Tkinter-подібного GUI та Raspberry Pi Pico
 (MicroPython). Код і робочу область можна редагувати в обидва боки —
@@ -34,7 +37,7 @@ npx serve .
 ```
 index.htm              Головна сторінка, toolbox (перелік блоків)
 style.css               Стилі інтерфейсу
-src/core/                Логіка середовища 
+src/core/                Логіка середовища (колишній app.js, розбитий за відповідальністю)
   generator.js            Ядро генератора Python (PY, valueToCode, statementToCode)
   blocks-turtle.js         Визначення "core"-блоків + модуль Turtle
   workspace.js              Синхронізація workspace↔код, запуск, збереження/завантаження
@@ -95,6 +98,10 @@ npm run lint:fix   # авто-виправлення того, що можна �
 - [`CHANGELOG.md`](CHANGELOG.md) — історія змін
 - [`NOTICE.md`](NOTICE.md) — ліцензії сторонніх бібліотек (Blockly, Skulpt, MicroPython-lib)
 - [`libraries/README.md`](libraries/README.md) — джерела бібліотек для Pico
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — як долучитись до розробки
+- [`SECURITY.md`](SECURITY.md) — як повідомити про вразливість
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — кодекс поведінки учасників
+- [`AUTHORS.md`](AUTHORS.md) — автор і подяки
 
 ## Ліцензія
 
