@@ -116,18 +116,9 @@ function defineBlocksAndGenerators() {
           tooltip: t('blktip_define_function')
         },
 
-        { type: "call_function", message0: t('blk_call_function'),
-          args0: [
-            { type: "field_dropdown", name: "FUNC", options: [[ t('blkopt_none'), "" ]] },
-            { type: "field_input", name: "ARGS", text: "" }
-          ],
-          previousStatement: null, nextStatement: null, colour: "#a855f7", tooltip: t('blktip_call_function') },
-
-        { type: "function_parameter", message0: t('blk_function_parameter'),
-          args0: [
-            { type: "field_dropdown", name: "PARAM_NAME", options: [[ t('blkopt_no_params'), "" ]] }
-          ],
-          output: null, colour: "#a855f7", tooltip: t('blktip_function_parameter') },
+        // call_function.FUNC та function_parameter.PARAM_NAME НАВМИСНО НЕ
+        // тут (нижче — окремі Blockly.Blocks[...] з ДИНАМІЧНИМ
+        // FieldDropdown; див. коментар і причину біля них).
 
         { type: "t_fillcolor_manual", message0: t('blk_t_fillcolor_manual'), args0: [{ type: "input_value", name: "COLOR", check: "String" }], previousStatement: null, nextStatement: null, colour: "#22c55e", tooltip: t('blktip_t_fillcolor_manual') },
         { type: "t_fillcolor_list", message0: t('blk_t_fillcolor_list'), args0: [{ type: "field_dropdown", name: "COLOR", options: [
@@ -151,6 +142,72 @@ function defineBlocksAndGenerators() {
         { type: "raw_python_block", message0: "🐍 " + t('blk_raw_python_block_prefix') + " %1", args0: [{ type: "field_input", name: "CODE", text: "" }], previousStatement: null, nextStatement: null, colour: "#475569", tooltip: t('blktip_raw_python_block') },
         { type: "raw_python_expr", message0: "🐍 %1", args0: [{ type: "field_input", name: "CODE", text: "" }], output: null, colour: "#64748b", tooltip: t('blktip_raw_python_expr') }
     ]);
+
+    // FIX (round-trip bug): call_function.FUNC і function_parameter.PARAM_NAME
+    // РАНІШЕ були оголошені в JSON-масиві вище як ЗВИЧАЙНІ field_dropdown зі
+    // СТАТИЧНИМ (фіксованим при реєстрації блоку) списком options — лише
+    // один пункт-заглушка [[none, ""]]. Через це, коли Blockly завантажував
+    // блок із збереженого XML і одразу намагався виставити поле в те
+    // значення, що там записано (напр. FUNC="greet"), стандартна
+    // ВБУДОВАНА валідація FieldDropdown ("Cannot set the dropdown's value
+    // to an unavailable option") миттєво ВІДКИДАЛА його — адже "greet" не
+    // входив до статичного списку з JSON. Це відбувалось СИНХРОННО під
+    // час створення блоку, тобто ДО того, як встигав спрацювати
+    // registerFunctionBlockWatcher()-слухач нижче — той міг лише (запізно)
+    // намагатись полагодити вже втрачене значення.
+    //
+    // РІШЕННЯ (той самий підхід, що й для tk_create_button.ONCLICK у
+    // js/extensions/tkinter.js): переозначаємо обидва блоки з ДИНАМІЧНИМ
+    // Blockly.FieldDropdown(optionsFn) — функція-генератор опцій
+    // викликається "на льоту" й ЗАВЖДИ включає ПОТОЧНЕ значення поля,
+    // тому Blockly ніколи не відкидає щойно прочитане з XML значення,
+    // навіть якщо відповідний define_function ще не встиг
+    // "прописатись" у workspace на цю мілісекунду.
+    Blockly.Blocks['call_function'] = {
+        init: function () {
+            const dropdown = new Blockly.FieldDropdown(function () {
+                const block = this.getSourceBlock ? this.getSourceBlock() : this.sourceBlock_;
+                const ws = block && block.workspace;
+                const names = (ws && typeof ws.getAllBlocks === 'function')
+                    ? ws.getAllBlocks(false)
+                        .filter(b => b.type === 'define_function')
+                        .map(b => b.getFieldValue('FUNC_NAME'))
+                        .filter(Boolean)
+                    : [];
+                const currentValue = this.getValue ? this.getValue() : null;
+                if (currentValue && !names.includes(currentValue)) names.push(currentValue);
+                return names.length ? names.map(n => [n, n]) : [[t('blkopt_none'), '']];
+            });
+            this.appendDummyInput()
+                .appendField(dropdown, 'FUNC')
+                .appendField(new Blockly.FieldTextInput(''), 'ARGS');
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour('#a855f7');
+            this.setTooltip(t('blktip_call_function'));
+        }
+    };
+    Blockly.Blocks['function_parameter'] = {
+        init: function () {
+            const dropdown = new Blockly.FieldDropdown(function () {
+                const block = this.getSourceBlock ? this.getSourceBlock() : this.sourceBlock_;
+                let parentFunc = block && block.getParent ? block.getParent() : null;
+                while (parentFunc && parentFunc.type !== 'define_function') {
+                    parentFunc = parentFunc.getParent ? parentFunc.getParent() : null;
+                }
+                const params = parentFunc
+                    ? (parentFunc.getFieldValue('PARAMS') || '').split(',').map(p => p.trim()).filter(Boolean)
+                    : [];
+                const currentValue = this.getValue ? this.getValue() : null;
+                if (currentValue && !params.includes(currentValue)) params.push(currentValue);
+                return params.length ? params.map(p => [p, p]) : [[t('blkopt_no_params'), '']];
+            });
+            this.appendDummyInput().appendField(dropdown, 'PARAM_NAME');
+            this.setOutput(true, null);
+            this.setColour('#a855f7');
+            this.setTooltip(t('blktip_function_parameter'));
+        }
+    };
 
     // Генератор PY, valueToCode, statementToCode тощо тепер визначені
     // ГЛОБАЛЬНО (на початку файлу) — щоб розширення (окремі js-файли,
@@ -564,8 +621,30 @@ function defineBlocksAndGenerators() {
 // (не входить у defineBlocksAndGenerators(), яку безпечно перевикликати
 // при зміні мови — інакше кожен виклик додавав би ще один дублікат
 // того самого обробника).
+// FIX (round-trip bug): раніше цей слухач ("workspace.addChangeListener")
+// спрацьовував БЕЗУМОВНО на КОЖНУ подію зміни воркспейсу — зокрема й на
+// проміжні події, що летять одна за одною під час масового
+// Blockly.Xml.domToWorkspace() при завантаженні збереженого .xml
+// (handleProjectFileUpload/loadLessonXml/applyCodeToBlocks/початкове
+// відновлення сесії — усі 5 місць виклику domToWorkspace()). У момент,
+// коли БЛОК call_function/function_parameter вже створений, а сусідній
+// define_function ще не встиг повністю "прописати" своє поле
+// FUNC_NAME/PARAMS (блоки завантажуються ПО ОДНОМУ), getDefinedFunctionNames()/
+// getFunctionParameters() повертали неповний/порожній список — і рядок
+// "if (!menu...includes(...)) field.setValue(menu[0][1])" МИТТЄВО стирав
+// щойно прочитане з XML значення (FUNC="greet" → "", PARAM_NAME="name" → "").
+// Той самий гандж — і для tk_create_button.ONCLICK (js/extensions/tkinter.js),
+// який своїм окремим слухачем підв'язаний до того самого патерну.
+//
+// РІШЕННЯ: під час масового domToWorkspace() виставляти
+// suppressFunctionFieldSync=true (генератор.js) — слухач тоді лише
+// ОНОВЛЮЄ menuGenerator_ (щоб дропдаун показував актуальні опції), але
+// НЕ чіпає збережене значення поля. Один ФІНАЛЬНИЙ прохід (уже з
+// повністю завантаженим деревом блоків) виконується явно, одноразово,
+// одразу після завершення завантаження — саме тоді й відкидаються
+// СПРАВДІ недійсні значення (напр. виклик функції, якої більше нема).
 function registerFunctionBlockWatcher() {
-    workspace.addChangeListener(() => {
+    function syncFunctionFields(forceReset) {
         const blocks = workspace.getAllBlocks(false);
         blocks.forEach(b => {
             if (b.type === "call_function") {
@@ -573,16 +652,22 @@ function registerFunctionBlockWatcher() {
                 const names = getDefinedFunctionNames();
                 const menu = names.length ? names.map(n => [n, n]) : [["(none)", ""]];
                 field.menuGenerator_ = menu;
-                if (!menu.map(m => m[1]).includes(field.getValue())) field.setValue(menu[0][1]);
+                if (forceReset && !menu.map(m => m[1]).includes(field.getValue())) field.setValue(menu[0][1]);
             }
             if (b.type === "function_parameter") {
                 const field = b.getField("PARAM_NAME");
                 const parentFunc = findParentFunction(b);
                 const params = parentFunc ? getFunctionParameters(parentFunc) : [["(no params)", ""]];
                 field.menuGenerator_ = params;
-                if (!params.map(p => p[1]).includes(field.getValue())) field.setValue(params[0] ? params[0][1] : "");
+                if (forceReset && !params.map(p => p[1]).includes(field.getValue())) field.setValue(params[0] ? params[0][1] : "");
             }
         });
+    }
+    workspace.addChangeListener(() => {
+        syncFunctionFields(!suppressFunctionFieldSync);
     });
+    // Дає змогу викликати ОДИН фінальний, "справжній" прохід (з
+    // forceReset=true) одразу після масового domToWorkspace() — з
+    // місць, перелічених у коментарі вище.
+    window.__syncFunctionFields = () => syncFunctionFields(true);
 }
-
