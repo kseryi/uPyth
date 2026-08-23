@@ -20,6 +20,7 @@ registerExtension('tkinter', function (ctx) {
     const PY = ctx.PY;
     const valueToCode = ctx.valueToCode;
     const toIdentifier = ctx.toIdentifier;
+    const escapeXml = ctx.escapeXml;
     const COLOUR = '#3b82f6';
     const COLOUR_DARK = '#1d4ed8';
 
@@ -107,6 +108,20 @@ registerExtension('tkinter', function (ctx) {
                     }
                 });
             }
+            // FIX (round-trip bug): під час масового завантаження з XML
+            // (Blockly.Xml.domToWorkspace — "Завантажити .xml", уроки,
+            // Код→Блоки тощо) блоки створюються ПО ОДНОМУ; коли Blockly
+            // валідує ЩОЙНО прочитане з XML значення цього дропдауна
+            // (напр. ONCLICK="greet"), сусідній define_function міг ще
+            // не встигнути з'явитись у workspace саме цієї миті — і
+            // Blockly просто відкидає невідоме значення ("Cannot set the
+            // dropdown's value to an unavailable option"), стираючи його.
+            // Тому завжди додаємо ПОТОЧНЕ значення поля до списку
+            // варіантів, навіть якщо відповідної define_function ще не
+            // знайдено — це не дає Blockly відкинути власне збережене
+            // значення блоку.
+            const currentValue = this.getValue ? this.getValue() : null;
+            if (currentValue && !names.includes(currentValue)) names.push(currentValue);
             if (!names.length) return [[fallbackName, fallbackName]];
             return names.map(n => [n, n]);
         });
@@ -391,19 +406,19 @@ registerExtension('tkinter', function (ctx) {
 
     function matchTkinterCreate(line) {
         let m;
-        if (m = line.match(/^(\w+)\s*=\s*tk\.Tk\(\)$/)) return { varName: m[1], xml: leaf('tk_create_root', { VAR: m[1] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Label\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.Tk\(\)$/))) return { varName: m[1], xml: leaf('tk_create_root', { VAR: m[1] }, 0).xml };
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Label\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_label', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]) }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Button\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*command\\s*=\\s*(\\w+)\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Button\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*command\\s*=\\s*(\\w+)\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_button', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), ONCLICK: m[4] }, 0).xml };
-        if (m = line.match(/^(\w+)\s*=\s*tk\.Entry\(\s*([^)]+?)\s*\)$/))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.Entry\(\s*([^)]+?)\s*\)$/)))
             return { varName: m[1], xml: leaf('tk_create_entry', { VAR: m[1], PARENT: m[2] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Checkbutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Checkbutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_checkbutton', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), VARIABLE: m[4] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Radiobutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*,\\s*value\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.Radiobutton\\(\\s*([^,]+?)\\s*,\\s*text\\s*=\\s*' + STR + '\\s*,\\s*variable\\s*=\\s*(\\w+)\\s*,\\s*value\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_radiobutton', { VAR: m[1], PARENT: m[2], TEXT: unescapePyStr(m[3]), VARIABLE: m[4], VALUE: unescapePyStr(m[5]) }, 0).xml };
-        if (m = line.match(/^(\w+)\s*=\s*tk\.IntVar\(\)$/)) return { varName: m[1], xml: leaf('tk_create_intvar', { VAR: m[1] }, 0).xml };
-        if (m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.StringVar\\(\\s*value\\s*=\\s*' + STR + '\\s*\\)$')))
+        if ((m = line.match(/^(\w+)\s*=\s*tk\.IntVar\(\)$/))) return { varName: m[1], xml: leaf('tk_create_intvar', { VAR: m[1] }, 0).xml };
+        if ((m = line.match(new RegExp('^(\\w+)\\s*=\\s*tk\\.StringVar\\(\\s*value\\s*=\\s*' + STR + '\\s*\\)$'))))
             return { varName: m[1], xml: leaf('tk_create_stringvar', { VAR: m[1], DEFAULT: unescapePyStr(m[2]) }, 0).xml };
         return null;
     }
@@ -417,13 +432,13 @@ registerExtension('tkinter', function (ctx) {
         if (text === 'from tkinter import messagebox') return { xml: leaf('import_tkinter_messagebox', {}, idx).xml, nextIdx: idx + 1 };
 
         let m;
-        if (m = text.match(new RegExp('^(\\w+)\\.title\\(\\s*' + STR + '\\s*\\)$')))
+        if ((m = text.match(new RegExp('^(\\w+)\\.title\\(\\s*' + STR + '\\s*\\)$'))))
             return { xml: leaf('tk_set_title', { VAR: m[1], TITLE: unescapePyStr(m[2]) }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.geometry\(\s*["'](\d+)[xX](\d+)["']\s*\)$/))
+        if ((m = text.match(/^(\w+)\.geometry\(\s*["'](\d+)[xX](\d+)["']\s*\)$/)))
             return { xml: leaf('tk_set_geometry', { VAR: m[1], W: m[2], H: m[3] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(/^(\w+)\.mainloop\(\)$/))
+        if ((m = text.match(/^(\w+)\.mainloop\(\)$/)))
             return { xml: leaf('tk_mainloop', { VAR: m[1] }, idx).xml, nextIdx: idx + 1 };
-        if (m = text.match(new RegExp('^messagebox\\.showinfo\\(\\s*' + STR + '\\s*,\\s*(.+)\\)$')))
+        if ((m = text.match(new RegExp('^messagebox\\.showinfo\\(\\s*' + STR + '\\s*,\\s*(.+)\\)$'))))
             return { xml: leafWithValue('tk_messagebox_showinfo', { TITLE: unescapePyStr(m[1]) }, { MESSAGE: m[2] }, idx).xml, nextIdx: idx + 1 };
 
         // "X = tk.Щось(...)" — можливо, одразу з прикріпленим ".pack(...)"
@@ -441,9 +456,46 @@ registerExtension('tkinter', function (ctx) {
 
         // Самостійний "X.pack(...)" (найпоширеніший випадок — саме так це
         // генерують блоки вище, окремим рядком/блоком).
-        if (m = text.match(/^(\w+)\.pack\((.*)\)$/))
+        if ((m = text.match(/^(\w+)\.pack\((.*)\)$/)))
             return { xml: leaf('tk_pack', { VAR: m[1], PADY: extractPady(m[2]) }, idx).xml, nextIdx: idx + 1 };
 
+        return null;
+    });
+
+    // FIX (round-trip bug): tk_entry_get ("entry1.get()") і tk_var_get
+    // ("check_var.get()") — це блоки-ЗНАЧЕННЯ (output-блоки), а не цілі
+    // інструкції, тож window.UPY_LINE_RECOGNIZERS (вище) їх ніколи не
+    // бачив — вони завжди були аргументом ІНШОГО виразу/інструкції (напр.
+    // print(entry1.get()) чи messagebox.showinfo("Результат", entry1.get())).
+    // Реєструємось у НОВОМУ хуку window.UPY_EXPR_RECOGNIZERS (parseExpr()
+    // у workspace.js) — дзеркально до LINE-хука вище.
+    window.UPY_EXPR_RECOGNIZERS.push(function (s) {
+        let m;
+        if ((m = s.match(/^(\w+)\.get\(\)$/))) {
+            // Немає надійного способу відрізнити tk_entry_get від
+            // tk_var_get лише за текстом виклику "X.get()" (в обох
+            // ЗБІГАЄТЬСЯ формат) — розрізняємо за типом БЛОКУ, який раніше
+            // створив саме цю змінну X у ПОТОЧНІЙ workspace (Entry →
+            // tk_entry_get, IntVar/StringVar → tk_var_get). Якщо змінна
+            // ще невідома (напр. розпізнається окремий фрагмент коду поза
+            // контекстом усієї програми) — типово вважаємо це полем вводу.
+            const varName = m[1];
+            let isVar = false;
+            try {
+                // FIX: НЕ "window.workspace" — `workspace` оголошена як
+                // top-level `let` у generator.js, а такі оголошення НЕ
+                // стають властивістю window навіть у звичайних (не-module)
+                // скриптах; спільна лексична область видимості робить
+                // "голий" ідентифікатор workspace доступним напряму.
+                if (typeof workspace !== 'undefined' && workspace && typeof workspace.getAllBlocks === 'function') {
+                    isVar = workspace.getAllBlocks(false).some(b =>
+                        (b.type === 'tk_create_intvar' || b.type === 'tk_create_stringvar') && b.getFieldValue('VAR') === varName);
+                }
+            } catch (e) { /* ігноруємо — просто лишаємось на дефолтному варіанті */ }
+            return isVar
+                ? `<block type="tk_var_get"><field name="VAR">${escapeXml(varName)}</field></block>`
+                : `<block type="tk_entry_get"><field name="VAR">${escapeXml(varName)}</field></block>`;
+        }
         return null;
     });
 

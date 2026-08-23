@@ -204,12 +204,15 @@ async function handlePyFileUpload(evt) {
             const generatedXml = pythonToBlocklyXml(pyText);
             if (window.ensureModulesForXmlText) await window.ensureModulesForXmlText(generatedXml);
             suppressAutoRefresh = true;
+            suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
             try {
                 workspace.clear();
                 Blockly.Xml.domToWorkspace(xmlTextToDom(generatedXml), workspace);
             } finally {
                 suppressAutoRefresh = false;
+                suppressFunctionFieldSync = false;
             }
+            if (window.__syncFunctionFields) window.__syncFunctionFields();
             refreshCode();
             setStatus(t('status_project_loaded'), 'ready');
         } catch (e) {

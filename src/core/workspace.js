@@ -105,12 +105,15 @@ window.redefineAllBlocksForLanguage = function redefineAllBlocksForLanguage() {
     try {
         const xml = Blockly.Xml.workspaceToDom(workspace);
         suppressAutoRefresh = true;
+        suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
         try {
             workspace.clear();
             Blockly.Xml.domToWorkspace(xml, workspace);
         } finally {
             suppressAutoRefresh = false;
+            suppressFunctionFieldSync = false;
         }
+        if (window.__syncFunctionFields) window.__syncFunctionFields();
         refreshCode();
     } catch (e) { console.error('Помилка перезавантаження робочої області після зміни мови:', e); }
 };
@@ -303,7 +306,13 @@ async function restoreAutoSavedWorkspace() {
         // (Turtle/Tkinter/Pico), спершу вмикаємо цей модуль — інакше
         // Blockly не знайде визначення типу блоку.
         if (window.ensureModulesForXmlText) await window.ensureModulesForXmlText(xml);
-        Blockly.Xml.domToWorkspace(xmlTextToDom(xml), workspace);
+        suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
+        try {
+            Blockly.Xml.domToWorkspace(xmlTextToDom(xml), workspace);
+        } finally {
+            suppressFunctionFieldSync = false;
+        }
+        if (window.__syncFunctionFields) window.__syncFunctionFields();
     } catch (e) { console.warn('Auto-restore failed:', e); }
 }
 function workspaceHasBlocks() {
@@ -639,6 +648,29 @@ function splitTopLevel(str, delimiters, isComma) {
     return isComma ? -1 : null;
 }
 
+// FIX (round-trip bug, допоміжна функція для text_join): на відміну від
+// splitTopLevel(), яка шукає лише ПЕРШЕ входження оператора, ця функція
+// розбиває рядок по УСІХ top-level '+' одразу — потрібно, щоб розпізнати
+// ланцюжок "str(A) + str(B) + str(C)" (2+ елементів) як ОДИН text_join,
+// а не як вкладені попарні math_arithmetic(ADD).
+function splitTopLevelPlus(str) {
+    const parts = [];
+    let depth = 0, inStr = null, start = 0;
+    for (let i = 0; i < str.length; i++) {
+        const c = str[i];
+        if (inStr) { if (c === '\\') { i++; continue; } if (c === inStr) inStr = null; continue; }
+        if (c === '"' || c === "'") { inStr = c; continue; }
+        if (c === '(') { depth++; continue; }
+        if (c === ')') { depth--; continue; }
+        if (depth === 0 && c === '+' && str.slice(start, i).trim() !== '') {
+            parts.push(str.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    parts.push(str.slice(start).trim());
+    return parts;
+}
+
 function splitTopLevelComma(str) {
     const parts = []; let rest = str;
     while (true) {
@@ -671,6 +703,26 @@ function parseExpr(exprStrRaw) {
     const s = (exprStrRaw || '').trim();
     if (s === '') return `<block type="raw_python_expr"><field name="CODE"></field></block>`;
     if (/^-?\d+(\.\d+)?$/.test(s)) return `<block type="math_number"><field name="NUM">${s}</field></block>`;
+
+    // FIX (round-trip bug — раніше геть відсутній хук): на відміну від
+    // ІНСТРУКЦІЙ (parseOneStatement), де розширення (tkinter.js/pico.js)
+    // МОГЛИ зареєструвати власний розпізнавач через
+    // window.UPY_LINE_RECOGNIZERS/registerLineRecognizer, для ВИРАЗІВ
+    // (parseExpr) такого хука не існувало ВЗАГАЛІ — тому будь-який
+    // "гетер" розширення, використаний як ЗНАЧЕННЯ (напр. print(entry1.get()),
+    // print(button.value()), print(sensor.temperature())), не мав шансів
+    // розпізнатись, хоч би що реєстрував сам extension. Додано дзеркальний
+    // до UPY_LINE_RECOGNIZERS хук — window.UPY_EXPR_RECOGNIZERS
+    // (реєструється через registerExprRecognizer(fn), js/extensions.js).
+    // Перевіряємо РАНО (як і LINE-хуки), щоб спеціалізовані патерни
+    // розширень мали пріоритет над загальним розбором нижче.
+    for (const recognizer of (window.UPY_EXPR_RECOGNIZERS || [])) {
+        try {
+            const r = recognizer(s);
+            if (r) return r;
+        } catch (e) { console.warn('Розпізнавач виразу кинув помилку, пропускаємо:', e); }
+    }
+
     let strMatch = s.match(/^'([^'\\]*(?:\\.[^'\\]*)*)'$/) || s.match(/^"([^"\\]*(?:\\.[^"\\]*)*)"$/);
     if (strMatch) {
         const unescaped = strMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, '\\');
@@ -684,6 +736,160 @@ function parseExpr(exprStrRaw) {
             return `<block type="math_random_int"><value name="FROM">${parseExpr(parts[0])}</value><value name="TO">${parseExpr(parts[1])}</value></block>`;
         }
     }
+
+    // ---------- Реалізація зворотного розпізнавання для groups
+    // "Введення" / математичних one-arg функцій / списків (специфікація —
+    // tests/parser.test.js) — раніше все це падало у фолбек
+    // raw_python_expr, хоча прямий генератор (blocks-turtle.js, PY[...])
+    // ці ж патерни вже породжує. Кожен regex тут — дзеркальне відображення
+    // відповідного PY['...'] вище по коду.
+
+    // ---------- Група "Введення" ----------
+    // FIX (round-trip bug, корінь помилки text_join): "funcname\((.+)\)$"
+    // із ЖАДІБНИМ ".+" зіставляє до ОСТАННЬОЇ дужки в усьому рядку, а не
+    // до дужки, що ЗАКРИВАЄ САМЕ ЦЕЙ виклик. Тому напр. для
+    // str("Іван ") + str("Петренко") (так генерує text_join) старий
+    // /^str\((.+)\)$/ хибно "проковтував" ВЕСЬ рядок і повертав побитий
+    // m[1] = "Іван ") + str("Петренко" — ще до того, як міг спрацювати
+    // окремий розпізнавач text_join нижче. matchWrappedCall() натомість
+    // стежить за глибиною дужок і повертає вміст лише тоді, коли
+    // ЗАКРИВНА дужка першого "(" дійсно збігається з ОСТАННІМ символом
+    // рядка (тобто виклик дійсно обгортає ввесь вираз, а не лише його
+    // частину).
+    function matchWrappedCall(str, funcName) {
+        const prefix = funcName + '(';
+        if (!str.startsWith(prefix) || !str.endsWith(')')) return null;
+        let depth = 0;
+        for (let i = prefix.length - 1; i < str.length; i++) {
+            const c = str[i];
+            if (c === '(') depth++;
+            else if (c === ')') {
+                depth--;
+                if (depth === 0) return i === str.length - 1 ? str.slice(prefix.length, -1) : null;
+            }
+        }
+        return null;
+    }
+    m = s.match(/^input\((.*)\)$/);
+    if (m) {
+        const promptXml = m[1].trim() === '' ? '' : `<value name="PROMPT">${parseExpr(m[1])}</value>`;
+        return `<block type="input_value">${promptXml}</block>`;
+    }
+    {
+        const intInner = matchWrappedCall(s, 'int');
+        if (intInner !== null) return `<block type="to_int"><value name="VALUE">${parseExpr(intInner)}</value></block>`;
+        const floatInner = matchWrappedCall(s, 'float');
+        if (floatInner !== null) return `<block type="to_float"><value name="VALUE">${parseExpr(floatInner)}</value></block>`;
+        const strInner = matchWrappedCall(s, 'str');
+        if (strInner !== null) return `<block type="to_str"><value name="VALUE">${parseExpr(strInner)}</value></block>`;
+    }
+
+    // ---------- Математика: %, one-arg функції, округлення ----------
+    // FIX (round-trip bug): PY['math_modulo'] генерує "(A % B)" — З
+    // ЗОВНІШНІМИ ДУЖКАМИ. splitTopLevel() рахує глибину дужок і тому НІКОЛИ
+    // не бачить '%' на "верхньому рівні", якщо весь рядок — одна пара
+    // дужок (глибина завжди >=1). Через це власний вивід math_modulo
+    // ніколи не розпізнавався назад. Знімаємо зовнішні дужки ПЕРЕД
+    // пошуком '%' (так само, як це вже робиться нижче для '+','-','*','/').
+    const modCandidate = stripOuterParens(s);
+    const modSplit = splitTopLevel(modCandidate, ['%'], false);
+    if (modSplit && modCandidate.slice(0, modSplit.i).trim() !== '' && modCandidate.slice(modSplit.i + 1).trim() !== '') {
+        const dividend = modCandidate.slice(0, modSplit.i).trim();
+        const divisor = modCandidate.slice(modSplit.i + 1).trim();
+        return `<block type="math_modulo"><value name="DIVIDEND">${parseExpr(dividend)}</value><value name="DIVISOR">${parseExpr(divisor)}</value></block>`;
+    }
+    const MATH_SINGLE_PATTERNS = [
+        [/^abs\((.+)\)$/, 'ABS'],
+        [/^math\.sqrt\((.+)\)$/, 'ROOT'],
+        [/^math\.log10\((.+)\)$/, 'LOG10'],
+        [/^math\.log\((.+)\)$/, 'LN'],
+        [/^math\.exp\((.+)\)$/, 'EXP'],
+        [/^math\.sin\(math\.radians\((.+)\)\)$/, 'SIN'],
+        [/^math\.cos\(math\.radians\((.+)\)\)$/, 'COS'],
+        [/^math\.tan\(math\.radians\((.+)\)\)$/, 'TAN'],
+    ];
+    for (const [re, op] of MATH_SINGLE_PATTERNS) {
+        m = s.match(re);
+        if (m) return `<block type="math_single"><field name="OP">${op}</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    }
+    m = s.match(/^round\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUND</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^math\.ceil\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUNDUP</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^math\.floor\((.+)\)$/);
+    if (m) return `<block type="math_round"><field name="OP">ROUNDDOWN</field><value name="NUM">${parseExpr(m[1])}</value></block>`;
+
+    // ---------- Списки/масиви ----------
+    // "(len(a) == 0)" (з опційними зовнішніми дужками) — ПЕРЕД плоским
+    // len(x) нижче і ПЕРЕД загальним розбором "==" (інакше впало б у
+    // звичайний logic_compare, а не в спеціалізований lists_isEmpty).
+    m = s.match(/^\(?\s*len\((.+)\)\s*==\s*0\s*\)?$/);
+    if (m) return `<block type="lists_isEmpty"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = s.match(/^len\((.+)\)$/);
+    if (m) return `<block type="text_length"><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    // Список-літерал: [1, 2, 3] або порожній []
+    m = s.match(/^\[(.*)\]$/);
+    if (m) {
+        const inner = m[1].trim();
+        const items = inner === '' ? [] : splitTopLevelComma(inner);
+        const valuesXml = items.map((item, i) => `<value name="ADD${i}">${parseExpr(item)}</value>`).join('');
+        return `<block type="lists_create_with"><mutation items="${items.length}"></mutation>${valuesXml}</block>`;
+    }
+    // a.index(x) — спрощений патерн ручного коду (прямий генератор
+    // натомість породжує довший вираз з "in ... else 0", але для
+    // РОЗПІЗНАВАННЯ написаного вручну коду досить простого виклику).
+    m = s.match(/^([A-Za-z_]\w*)\.index\((.+)\)$/);
+    if (m) return `<block type="lists_indexOf"><field name="END">FIRST</field><value name="VALUE">${parseExpr(m[1])}</value><value name="FIND">${parseExpr(m[2])}</value></block>`;
+
+    // FIX (round-trip bug): PY['lists_getIndex'] НІКОЛИ не породжує "голий"
+    // числовий індекс list[N] — лише list[0] (FIRST), list[-1] (LAST),
+    // list[-(AT)] (FROM_END) або list[(AT) - 1] (FROM_START). Старий
+    // патерн нижче (тільки list[\d+]) не розпізнавав ЖОДЕН із них —
+    // власний вивід блоку завжди падав у raw_python_expr. Додано по
+    // одному дзеркальному патерну на кожен WHERE-режим, У ТОМУ Ж
+    // ПОРЯДКУ, що й гілки в PY['lists_getIndex'] (щоб не переплутати
+    // list[-1] з "загальним" list[-(AT)]).
+    // FIX: значення сюди може прийти з ЗАЙВИМИ зовнішніми дужками (напр.
+    // якщо це під-вираз усередині більшого виразу) — знімаємо їх перед
+    // порівнянням, так само як для % і text_join вище.
+    const getIndexCandidate = stripOuterParens(s);
+    m = getIndexCandidate.match(/^([A-Za-z_]\w*)\[0\]$/);
+    if (m) return `<block type="lists_getIndex"><mutation statement="false" at="false"></mutation><field name="MODE">GET</field><field name="WHERE">FIRST</field><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = getIndexCandidate.match(/^([A-Za-z_]\w*)\[-1\]$/);
+    if (m) return `<block type="lists_getIndex"><mutation statement="false" at="false"></mutation><field name="MODE">GET</field><field name="WHERE">LAST</field><value name="VALUE">${parseExpr(m[1])}</value></block>`;
+    m = getIndexCandidate.match(/^([A-Za-z_]\w*)\[-\((.+)\)\]$/);
+    if (m) return `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_END</field><value name="VALUE">${parseExpr(m[1])}</value><value name="AT">${parseExpr(m[2])}</value></block>`;
+    m = getIndexCandidate.match(/^([A-Za-z_]\w*)\[\((.+)\)\s*-\s*1\]$/);
+    if (m) return `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_START</field><value name="VALUE">${parseExpr(m[1])}</value><value name="AT">${parseExpr(m[2])}</value></block>`;
+    // a[N] — запасний варіант ДЛЯ РУЧНОГО коду (0-based літерал, як у
+    // Python) → FROM_START з 1-based AT. Лишається ОСТАННІМ у списку —
+    // патерни вище точніше відображають те, що реально видає генератор.
+    m = getIndexCandidate.match(/^([A-Za-z_]\w*)\[(\d+)\]$/);
+    if (m) {
+        const at = parseInt(m[2], 10) + 1;
+        return `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_START</field><value name="VALUE">${parseExpr(m[1])}</value><value name="AT">${parseExpr(String(at))}</value></block>`;
+    }
+
+    // FIX (round-trip bug): PY['text_join'] генерує "str(A) + str(B) + ...",
+    // без зовнішніх дужок (blocks-turtle.js: parts.join(' + ')). Раніше
+    // зворотного патерна не було зовсім — весь вираз розбирався ЗАГАЛЬНИМ
+    // '+'-спліттером нижче й ставав ВКЛАДЕНИМ math_arithmetic(ADD) із
+    // to_str-блоками замість одного text_join. Перевіряємо ПЕРЕД
+    // загальним розбором операторів, і лише якщо кожна(!) top-level
+    // частина — саме "str(...)" (інакше не чіпаємо — нехай іде в
+    // math_arithmetic, як і раніше, для звичайного "a + b").
+    {
+        const joinCandidate = stripOuterParens(s);
+        const joinParts = splitTopLevelPlus(joinCandidate);
+        if (joinParts.length >= 2 && joinParts.every(p => /^str\(.+\)$/.test(p))) {
+            const valuesXml = joinParts.map((p, i) => {
+                const inner = p.match(/^str\((.+)\)$/)[1];
+                return `<value name="ADD${i}">${parseExpr(inner)}</value>`;
+            }).join('');
+            return `<block type="text_join"><mutation items="${joinParts.length}"></mutation>${valuesXml}</block>`;
+        }
+    }
+
     if (/^[A-Za-z_]\w*$/.test(s) && !PY_KEYWORDS.has(s)) {
         return `<block type="variables_get"><field name="VAR">${escapeXml(s)}</field></block>`;
     }
@@ -824,20 +1030,20 @@ function parseOneStatement(lines, idx, indent) {
     if (text === 'break') return leaf('controls_flow_statements', { FLOW: 'BREAK' }, idx);
     if (text === 'continue') return leaf('controls_flow_statements', { FLOW: 'CONTINUE' }, idx);
 
-    if (m = text.match(/^(\w+)\s*=\s*turtle\.Turtle\(\)$/)) return leaf('create_turtle', { NAME: m[1] }, idx);
-    if (m = text.match(/^\w+\.speed\((.+)\)$/)) return leafWithValue('set_speed', { NAME: currentTurtleName }, { SPEED: m[1] }, idx);
-    if (m = text.match(/^\w+\.forward\((.+)\)$/)) return leafWithValue('t_forward', {}, { DIST: m[1] }, idx);
-    if (m = text.match(/^\w+\.backward\((.+)\)$/)) return leafWithValue('t_backward', {}, { DIST: m[1] }, idx);
-    if (m = text.match(/^\w+\.left\((.+)\)$/)) return leafWithValue('t_left', {}, { ANGLE: m[1] }, idx);
-    if (m = text.match(/^\w+\.right\((.+)\)$/)) return leafWithValue('t_right', {}, { ANGLE: m[1] }, idx);
+    if ((m = text.match(/^(\w+)\s*=\s*turtle\.Turtle\(\)$/))) return leaf('create_turtle', { NAME: m[1] }, idx);
+    if ((m = text.match(/^\w+\.speed\((.+)\)$/))) return leafWithValue('set_speed', { NAME: currentTurtleName }, { SPEED: m[1] }, idx);
+    if ((m = text.match(/^\w+\.forward\((.+)\)$/))) return leafWithValue('t_forward', {}, { DIST: m[1] }, idx);
+    if ((m = text.match(/^\w+\.backward\((.+)\)$/))) return leafWithValue('t_backward', {}, { DIST: m[1] }, idx);
+    if ((m = text.match(/^\w+\.left\((.+)\)$/))) return leafWithValue('t_left', {}, { ANGLE: m[1] }, idx);
+    if ((m = text.match(/^\w+\.right\((.+)\)$/))) return leafWithValue('t_right', {}, { ANGLE: m[1] }, idx);
     if (/^\w+\.penup\(\)$/.test(text)) return leaf('t_penup', {}, idx);
     if (/^\w+\.pendown\(\)$/.test(text)) return leaf('t_pendown', {}, idx);
-    if (m = text.match(/^\w+\.pensize\((.+)\)$/)) return leafWithValue('t_pensize', {}, { SIZE: m[1] }, idx);
-    if (m = text.match(/^\w+\.pencolor\((.+)\)$/)) return leafWithValue('t_color', {}, { COLOR: m[1] }, idx);
-    if (m = text.match(/^\w+\.fillcolor\((.+)\)$/)) return leafWithValue('t_fillcolor_manual', {}, { COLOR: m[1] }, idx);
+    if ((m = text.match(/^\w+\.pensize\((.+)\)$/))) return leafWithValue('t_pensize', {}, { SIZE: m[1] }, idx);
+    if ((m = text.match(/^\w+\.pencolor\((.+)\)$/))) return leafWithValue('t_color', {}, { COLOR: m[1] }, idx);
+    if ((m = text.match(/^\w+\.fillcolor\((.+)\)$/))) return leafWithValue('t_fillcolor_manual', {}, { COLOR: m[1] }, idx);
     if (/^\w+\.begin_fill\(\)$/.test(text)) return leaf('t_begin_fill', {}, idx);
     if (/^\w+\.end_fill\(\)$/.test(text)) return leaf('t_end_fill', {}, idx);
-    if (m = text.match(/^\w+\.circle\((.+)\)$/)) return leafWithValue('t_circle', {}, { R: m[1] }, idx);
+    if ((m = text.match(/^\w+\.circle\((.+)\)$/))) return leafWithValue('t_circle', {}, { R: m[1] }, idx);
 
     if (/^turtle\.register_shape\(/.test(text)) {
         const next = lines[idx + 1];
@@ -846,12 +1052,12 @@ function parseOneStatement(lines, idx, indent) {
         }
         return { xml: rawLineXml(text), nextIdx: idx + 1 };
     }
-    if (m = text.match(/^\w+\.shape\("(\w+)"\)$/)) {
+    if ((m = text.match(/^\w+\.shape\("(\w+)"\)$/))) {
         if (ALLOWED_SHAPES.includes(m[1])) return leaf('turtle_shape', { SHAPE: m[1] }, idx);
         return { xml: rawLineXml(text), nextIdx: idx + 1 };
     }
 
-    if (m = text.match(/^print\((.*)\)$/)) return leafWithValue('print', {}, { VALUE: m[1] }, idx);
+    if ((m = text.match(/^print\((.*)\)$/))) return leafWithValue('print', {}, { VALUE: m[1] }, idx);
 
     // ХУК ДЛЯ РОЗШИРЕНЬ (вимога: "нехай кнопки/віджети не завжди
     // потрапляють у загальний 'set X to ...'"): tkinter.js/pico.js та інші
@@ -868,10 +1074,67 @@ function parseOneStatement(lines, idx, indent) {
         } catch (e) { console.warn('Розпізнавач рядка кинув помилку, пропускаємо:', e); }
     }
 
-    if (m = text.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/)) {
+    // FIX (round-trip bug): math_change генерує РІВНО "VAR = VAR + DELTA"
+    // (без дужок, blocks-turtle.js: PY['math_change']). Без цього патерна
+    // рядок падав у ЗАГАЛЬНИЙ "VAR = ..." нижче й ставав variables_set +
+    // math_arithmetic — семантично те саме, але вже НЕ math_change.
+    // Перевіряємо ПЕРЕД загальним присвоєнням, аби мати пріоритет.
+    if ((m = text.match(/^([A-Za-z_]\w*)\s*=\s*\1\s*\+\s*(.+)$/))) {
+        return leafWithValue('math_change', { VAR: m[1] }, { DELTA: m[2] }, idx);
+    }
+
+    // FIX (round-trip bug): присвоєння за індексом списку — lists_setIndex
+    // (blocks-turtle.js: PY['lists_setIndex']) генерує "list[0] = X",
+    // "list[-1] = X", "list[-(AT)] = X" або "list[(AT) - 1] = X" залежно
+    // від WHERE. Раніше жодного зворотного патерна не було зовсім — увесь
+    // рядок падав у сирий raw_python_line. Перевіряємо ПЕРЕД загальним
+    // "VAR = ..." (інакше воно туди й не потрапило б: LHS там — лише
+    // "голий" ідентифікатор, без "[...]", тож конфлікту немає, але для
+    // ясності тримаємо разом з іншими спеціалізованими патернами присвоєння).
+    if ((m = text.match(/^([A-Za-z_]\w*)\[0\]\s*=\s*(.+)$/))) {
+        return { xml: `<block type="lists_setIndex"><mutation at="false"></mutation><field name="WHERE">FIRST</field><value name="LIST">${parseExpr(m[1])}</value><value name="TO">${parseExpr(m[2])}</value></block>`, nextIdx: idx + 1 };
+    }
+    if ((m = text.match(/^([A-Za-z_]\w*)\[-1\]\s*=\s*(.+)$/))) {
+        return { xml: `<block type="lists_setIndex"><mutation at="false"></mutation><field name="WHERE">LAST</field><value name="LIST">${parseExpr(m[1])}</value><value name="TO">${parseExpr(m[2])}</value></block>`, nextIdx: idx + 1 };
+    }
+    if ((m = text.match(/^([A-Za-z_]\w*)\[-\((.+)\)\]\s*=\s*(.+)$/))) {
+        return { xml: `<block type="lists_setIndex"><mutation at="true"></mutation><field name="WHERE">FROM_END</field><value name="LIST">${parseExpr(m[1])}</value><value name="AT">${parseExpr(m[2])}</value><value name="TO">${parseExpr(m[3])}</value></block>`, nextIdx: idx + 1 };
+    }
+    if ((m = text.match(/^([A-Za-z_]\w*)\[\((.+)\)\s*-\s*1\]\s*=\s*(.+)$/))) {
+        return { xml: `<block type="lists_setIndex"><mutation at="true"></mutation><field name="WHERE">FROM_START</field><value name="LIST">${parseExpr(m[1])}</value><value name="AT">${parseExpr(m[2])}</value><value name="TO">${parseExpr(m[3])}</value></block>`, nextIdx: idx + 1 };
+    }
+
+    if ((m = text.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/))) {
         return { xml: `<block type="variables_set"><field name="VAR">${escapeXml(m[1])}</field><value name="VALUE">${parseExpr(m[2])}</value></block>`, nextIdx: idx + 1 };
     }
-    if (m = text.match(/^([A-Za-z_]\w*)\((.*)\)$/)) return leaf('call_function', { FUNC: m[1], ARGS: m[2] }, idx);
+    if ((m = text.match(/^([A-Za-z_]\w*)\((.*)\)$/))) return leaf('call_function', { FUNC: m[1], ARGS: m[2] }, idx);
+
+    // FIX (round-trip bug): controls_for генерує РІВНО
+    // "for VAR in range(FROM, TO + 1, BY):" (blocks-turtle.js:
+    // PY['controls_for']) — трьохаргументний range() з VAR, що НЕ "_".
+    // Раніше зворотного розпізнавача не було ЗОВСІМ (грep по всьому файлу
+    // не знаходив жодної згадки controls_for) — рядок завжди йшов у
+    // raw_python_block. Перевіряємо ПЕРЕД parseForRepeat (controls_repeat_ext),
+    // щоб не переплутати — той відрізняється кількістю аргументів range().
+    if ((m = text.match(/^for\s+([A-Za-z_]\w*)\s+in\s+range\((.+)\):$/))) {
+        const parts = splitTopLevelComma(m[2]);
+        if (parts.length === 3) {
+            const fromExpr = parts[0].trim();
+            const toRaw = parts[1].trim();
+            const byExpr = parts[2].trim();
+            // TO завжди у форматі "EXPR + 1" (симетрично до генератора,
+            // який завжди дописує "+ 1" до TO-виразу).
+            const toMatch = toRaw.match(/^(.+?)\s\+\s1$/);
+            if (toMatch) {
+                const toExpr = toMatch[1].trim();
+                let j = idx + 1;
+                const body = parseBlockSequence(lines, j, indent + 1);
+                const stmt = body.xml ? `<statement name="DO">${body.xml}</statement>` : '';
+                const xml = `<block type="controls_for"><field name="VAR">${escapeXml(m[1])}</field><value name="FROM">${parseExpr(fromExpr)}</value><value name="TO">${parseExpr(toExpr)}</value><value name="BY">${parseExpr(byExpr)}</value>${stmt}</block>`;
+                return { xml, nextIdx: body.nextIdx };
+            }
+        }
+    }
 
     if (/^for _ in range\(.+\):$/.test(text)) return parseForRepeat(lines, idx, indent);
     if (/^while\s+.+:$/.test(text)) return parseWhile(lines, idx, indent);
@@ -900,12 +1163,15 @@ async function applyCodeToBlocks(code) {
         // addChangeListener вище). try/finally гарантує, що прапорець
         // завжди повернеться в false, навіть якщо завантаження впаде.
         suppressAutoRefresh = true;
+        suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
         try {
             workspace.clear();
             Blockly.Xml.domToWorkspace(dom, workspace);
         } finally {
             suppressAutoRefresh = false;
+            suppressFunctionFieldSync = false;
         }
+        if (window.__syncFunctionFields) window.__syncFunctionFields();
         // Blockly групує/призупиняє події під час масового завантаження
         // з XML, тому надійніше викликати refreshCode() явно один раз тут.
         refreshCode();
@@ -986,12 +1252,15 @@ window.loadLessonXml = async function loadLessonXml(xmlText, lessonName) {
     if (workspaceHasBlocks() && !confirm(t('confirm_load_example'))) return;
     if (window.ensureModulesForXmlText) await window.ensureModulesForXmlText(xmlText);
     suppressAutoRefresh = true;
+    suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
     try {
         workspace.clear();
         Blockly.Xml.domToWorkspace(xmlTextToDom(xmlText), workspace);
     } finally {
         suppressAutoRefresh = false;
+        suppressFunctionFieldSync = false;
     }
+    if (window.__syncFunctionFields) window.__syncFunctionFields();
     refreshCode();
     setStatus(t('status_example_loaded'), 'ready');
 };
@@ -1029,12 +1298,15 @@ function handleProjectFileUpload(evt) {
             // Вимога #7: модулі, чиї блоки є у файлі, вмикаються автоматично.
             if (window.ensureModulesForXmlText) await window.ensureModulesForXmlText(reader.result);
             suppressAutoRefresh = true;
+            suppressFunctionFieldSync = true; // FIX (round-trip bug): найважливіше місце — саме тут раніше "губились" call_function.FUNC / function_parameter.PARAM_NAME / tk_create_button.ONCLICK при звичайному завантаженні збереженого .xml. Див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js.
             try {
                 workspace.clear();
                 Blockly.Xml.domToWorkspace(xmlTextToDom(reader.result), workspace);
             } finally {
                 suppressAutoRefresh = false;
+                suppressFunctionFieldSync = false;
             }
+            if (window.__syncFunctionFields) window.__syncFunctionFields();
             refreshCode();
             setStatus(t('status_project_loaded'), 'ready');
         } catch (e) {

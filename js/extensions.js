@@ -82,6 +82,11 @@ window.UPY_EXTENSIONS_ENABLED = window.UPY_EXTENSIONS_ENABLED || {}; // id -> tr
 window.UPY_RUN_HANDLERS = window.UPY_RUN_HANDLERS || []; // спец. обробники виконання (напр. прев'ю вікна Tkinter замість Skulpt)
 window.UPY_PANEL_PROVIDERS = window.UPY_PANEL_PROVIDERS || {}; // id -> { mount(container) } — адаптація 3-ї панелі
 window.UPY_LINE_RECOGNIZERS = window.UPY_LINE_RECOGNIZERS || []; // (text, idx, indent, lines) => {xml|xmls, nextIdx}|null
+// FIX (round-trip bug): дзеркальний хук для ВИРАЗІВ (parseExpr у
+// workspace.js) — раніше розширення могли розпізнавати назад лише цілі
+// ІНСТРУКЦІЇ (через UPY_LINE_RECOGNIZERS вище), але не значення
+// (напр. entry1.get() усередині print(...)). (exprStr) => xmlString|null
+window.UPY_EXPR_RECOGNIZERS = window.UPY_EXPR_RECOGNIZERS || [];
 // ↑ дозволяє розширенням (tkinter.js, pico.js, ...) розпізнавати "свої"
 // рядки Python (напр. "root = tk.Tk()") у панелі коду й перетворювати їх
 // на СПЕЦІАЛЬНІ блоки — замість того, щоб усе падало в загальний
@@ -195,6 +200,7 @@ window.registerExtension = function (id, initFn) {
         PY: window.PY, valueToCode, statementToCode, toIdentifier, indentBlock,
         leaf, leafWithValue, parseExpr, escapeXml,
         registerLineRecognizer: fn => window.UPY_LINE_RECOGNIZERS.push(fn),
+        registerExprRecognizer: fn => window.UPY_EXPR_RECOGNIZERS.push(fn), // FIX: див. коментар біля window.UPY_EXPR_RECOGNIZERS вище
         t: (typeof t === 'function' ? t : (k => k))
     });
     window.registerModule(id, descriptor);

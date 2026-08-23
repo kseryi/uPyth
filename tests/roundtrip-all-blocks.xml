@@ -1,0 +1,893 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  roundtrip-all-blocks.xml
+  =========================================================================
+  Призначення: ручний/regression-тест ДВОСТОРОННЬОГО парсингу uPyth —
+  Блоки → Python (генератор, src/core/generator.js + src/core/
+  blocks-turtle.js + js/extensions/*.js)  і  Python → Блоки (парсер,
+  parseExpr()/parseOneStatement() у src/core/workspace.js).
+
+  Як користуватись:
+   1. Відкрити index.htm (через локальний http-сервер, див. README.md).
+   2. Завантажити цей файл через "Завантажити .xml" / File → Open
+      (workspace.js: loadWorkspaceXml / відповідна кнопка в ui.js).
+   3. Перевірити, що:
+        a) усі блоки відрендерились без помилок "Invalid block definition";
+        b) панель коду праворуч згенерувала валідний Python без блоків
+           "🐍" (raw_python_*) там, де очікується "рідний" блок —
+           це і є перевірка напрямку Блоки → Код;
+   4. Виділити весь текст у панелі коду, скопіювати, ОЧИСТИТИ workspace
+      і вставити код назад у текстовий редактор (шлях Код → Блоки,
+      applyCodeToBlocks() у workspace.js) — перевірити, що:
+        a) блоки з розділів 1–6 (core: Turtle/Логіка/Математика/Текст/
+           Масиви/Введення/Функції) відновлюються як ПРАВИЛЬНІ спеціальні
+           блоки (а НЕ падають у сірий фолбек raw_python_line/expr) —
+           це напрямок Код → Блоки, задокументований у
+           tests/parser.test.js;
+        b) розділи 7–8 (Tkinter/Pico) — це блоки-РОЗШИРЕННЯ: генератор
+           (Блоки → Код) в них повний, а зворотне розпізнавання (Код →
+           Блоки) залежить від window.UPY_LINE_RECOGNIZERS, які
+           реєструють самі розширення (js/extensions/tkinter.js,
+           js/extensions/pico.js) — тому там очікується Я Ч ЩЕ раз
+           перевірити, чи не зʼявився сірий фолбек-блок замість
+           tk_*/pico_*/neopixel_*/oled_*/lcd_*/dht_*/hcsr04_*/servo_*.
+
+  Кожен розділ — окрема послідовність, що починається з flag_start і
+  розташована по X, аби не накладатись у workspace. Використані
+  типи-shadow (math_number/text) там, де стандартний toolbox теж їх
+  використовує (index.htm), щоб приклад був максимально "рідним" для
+  проєкту.
+  =========================================================================
+-->
+<xml xmlns="https://developers.google.com/blockly/xml">
+
+  <!-- =====================================================================
+       1) TURTLE / "Pen" / "Shapes" — рух, перо, заливка, форми
+       ===================================================================== -->
+  <block type="flag_start" x="20" y="20">
+    <next>
+      <block type="import_turtle">
+        <next>
+          <block type="create_turtle">
+            <field name="NAME">t</field>
+            <next>
+              <block type="set_speed">
+                <field name="NAME">t</field>
+                <value name="SPEED"><shadow type="math_number"><field name="NUM">8</field></shadow></value>
+                <next>
+                  <block type="turtle_shape">
+                    <field name="SHAPE">turtle</field>
+                    <next>
+                      <block type="t_color">
+                        <value name="COLOR"><shadow type="text"><field name="TEXT">blue</field></shadow></value>
+                        <next>
+                          <block type="t_fillcolor_manual">
+                            <value name="COLOR"><shadow type="text"><field name="TEXT">red</field></shadow></value>
+                            <next>
+                              <block type="t_fillcolor_list">
+                                <field name="COLOR">yellow</field>
+                                <next>
+                                  <block type="t_pensize">
+                                    <value name="SIZE"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+                                    <next>
+                                      <block type="t_begin_fill">
+                                        <next>
+                                          <block type="t_forward">
+                                            <value name="DIST"><shadow type="math_number"><field name="NUM">120</field></shadow></value>
+                                            <next>
+                                              <block type="t_right">
+                                                <value name="ANGLE"><shadow type="math_number"><field name="NUM">90</field></shadow></value>
+                                                <next>
+                                                  <block type="t_backward">
+                                                    <value name="DIST"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+                                                    <next>
+                                                      <block type="t_left">
+                                                        <value name="ANGLE"><shadow type="math_number"><field name="NUM">45</field></shadow></value>
+                                                        <next>
+                                                          <block type="t_penup">
+                                                            <next>
+                                                              <block type="t_pendown">
+                                                                <next>
+                                                                  <block type="t_circle">
+                                                                    <value name="R"><shadow type="math_number"><field name="NUM">40</field></shadow></value>
+                                                                    <next>
+                                                                      <block type="t_square">
+                                                                        <value name="A"><shadow type="math_number"><field name="NUM">50</field></shadow></value>
+                                                                        <next>
+                                                                          <block type="t_end_fill">
+                                                                            <next>
+                                                                              <block type="print">
+                                                                                <value name="VALUE"><shadow type="text"><field name="TEXT">Готово!</field></shadow></value>
+                                                                              </block>
+                                                                            </next>
+                                                                          </block>
+                                                                        </next>
+                                                                      </block>
+                                                                    </next>
+                                                                  </block>
+                                                                </next>
+                                                              </block>
+                                                            </next>
+                                                          </block>
+                                                        </next>
+                                                      </block>
+                                                    </next>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       2) КОНТРОЛЬ ВИКОНАННЯ — if/elif/else, while, for-repeat, for(from..to
+          by), break/continue, вкладена Логіка (порівняння + boolean)
+       ===================================================================== -->
+  <block type="flag_start" x="480" y="20">
+    <next>
+      <block type="variables_set">
+        <field name="VAR">i</field>
+        <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+        <next>
+          <block type="controls_if">
+            <mutation elseif="1" else="1"></mutation>
+            <value name="IF0">
+              <block type="logic_compare">
+                <field name="OP">EQ</field>
+                <value name="A"><block type="variables_get"><field name="VAR">i</field></block></value>
+                <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="print">
+                <value name="VALUE"><block type="text_literal"><field name="TEXT">нуль</field></block></value>
+              </block>
+            </statement>
+            <value name="IF1">
+              <block type="logic_boolean">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+            <statement name="DO1">
+              <block type="print">
+                <value name="VALUE"><block type="text_literal"><field name="TEXT">завжди</field></block></value>
+              </block>
+            </statement>
+            <statement name="ELSE">
+              <block type="print">
+                <value name="VALUE"><block type="text_literal"><field name="TEXT">інакше</field></block></value>
+              </block>
+            </statement>
+            <next>
+              <block type="controls_ifelse">
+                <value name="IF0">
+                  <block type="logic_compare">
+                    <field name="OP">LT</field>
+                    <value name="A"><block type="variables_get"><field name="VAR">i</field></block></value>
+                    <value name="B"><block type="math_number"><field name="NUM">10</field></block></value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="controls_flow_statements">
+                    <field name="FLOW">CONTINUE</field>
+                  </block>
+                </statement>
+                <statement name="ELSE">
+                  <block type="controls_flow_statements">
+                    <field name="FLOW">BREAK</field>
+                  </block>
+                </statement>
+                <next>
+                  <block type="controls_whileUntil">
+                    <field name="MODE">WHILE</field>
+                    <value name="BOOL">
+                      <block type="logic_compare">
+                        <field name="OP">LT</field>
+                        <value name="A"><block type="variables_get"><field name="VAR">i</field></block></value>
+                        <value name="B"><block type="math_number"><field name="NUM">5</field></block></value>
+                      </block>
+                    </value>
+                    <statement name="DO">
+                      <block type="math_change">
+                        <field name="VAR">i</field>
+                        <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="controls_repeat_ext">
+                        <value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
+                        <statement name="DO">
+                          <block type="print">
+                            <value name="VALUE"><block type="text_literal"><field name="TEXT">повтор</field></block></value>
+                          </block>
+                        </statement>
+                        <next>
+                          <block type="controls_for">
+                            <field name="VAR">j</field>
+                            <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                            <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                            <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                            <statement name="DO">
+                              <block type="print">
+                                <value name="VALUE"><block type="variables_get"><field name="VAR">j</field></block></value>
+                              </block>
+                            </statement>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       3) МАТЕМАТИКА — арифметика, %, одноаргументні функції, округлення,
+          random.randint, math_change, ВВЕДЕННЯ (input/int/float/str)
+       ===================================================================== -->
+  <block type="flag_start" x="940" y="20">
+    <next>
+      <block type="import_random">
+        <next>
+          <block type="import_math">
+            <next>
+              <block type="variables_set">
+                <field name="VAR">x</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic">
+                    <field name="OP">ADD</field>
+                    <value name="A"><block type="math_number"><field name="NUM">6</field></block></value>
+                    <value name="B">
+                      <block type="math_arithmetic">
+                        <field name="OP">MULTIPLY</field>
+                        <value name="A"><block type="math_number"><field name="NUM">7</field></block></value>
+                        <value name="B"><block type="math_number"><field name="NUM">2</field></block></value>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set">
+                    <field name="VAR">y</field>
+                    <value name="VALUE">
+                      <block type="math_modulo">
+                        <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                        <value name="DIVISOR"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set">
+                        <field name="VAR">age_text</field>
+                        <value name="VALUE">
+                          <block type="input_value">
+                            <value name="PROMPT"><block type="text_literal"><field name="TEXT">Вік: </field></block></value>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set">
+                            <field name="VAR">age</field>
+                            <value name="VALUE">
+                              <block type="to_int">
+                                <value name="VALUE"><block type="variables_get"><field name="VAR">age_text</field></block></value>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="variables_set">
+                                <field name="VAR">pi_str</field>
+                                <value name="VALUE">
+                                  <block type="to_str">
+                                    <value name="VALUE">
+                                      <block type="to_float">
+                                        <value name="VALUE"><block type="math_number"><field name="NUM">3.14</field></block></value>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="variables_set">
+                                    <field name="VAR">r</field>
+                                    <value name="VALUE">
+                                      <block type="math_random_int">
+                                        <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                        <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="math_change">
+                                        <field name="VAR">r</field>
+                                        <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <block type="flag_start" x="940" y="420">
+    <next>
+      <block type="print">
+        <value name="VALUE"><block type="math_single"><field name="OP">ABS</field><value name="NUM"><block type="math_number"><field name="NUM">-5</field></block></value></block></value>
+        <next>
+          <block type="print">
+            <value name="VALUE"><block type="math_single"><field name="OP">ROOT</field><value name="NUM"><block type="math_number"><field name="NUM">9</field></block></value></block></value>
+            <next>
+              <block type="print">
+                <value name="VALUE"><block type="math_single"><field name="OP">SIN</field><value name="NUM"><block type="math_number"><field name="NUM">30</field></block></value></block></value>
+                <next>
+                  <block type="print">
+                    <value name="VALUE"><block type="math_single"><field name="OP">COS</field><value name="NUM"><block type="math_number"><field name="NUM">60</field></block></value></block></value>
+                    <next>
+                      <block type="print">
+                        <value name="VALUE"><block type="math_single"><field name="OP">LN</field><value name="NUM"><block type="math_number"><field name="NUM">2</field></block></value></block></value>
+                        <next>
+                          <block type="print">
+                            <value name="VALUE"><block type="math_round"><field name="OP">ROUND</field><value name="NUM"><block type="math_number"><field name="NUM">3.5</field></block></value></block></value>
+                            <next>
+                              <block type="print">
+                                <value name="VALUE"><block type="math_round"><field name="OP">ROUNDUP</field><value name="NUM"><block type="math_number"><field name="NUM">3.1</field></block></value></block></value>
+                                <next>
+                                  <block type="print">
+                                    <value name="VALUE"><block type="math_round"><field name="OP">ROUNDDOWN</field><value name="NUM"><block type="math_number"><field name="NUM">3.9</field></block></value></block></value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       4) ТЕКСТ + МАСИВИ — literal/join/length, create_with/getIndex/
+          setIndex/indexOf/isEmpty/length (усі режими WHERE/MODE/END)
+       ===================================================================== -->
+  <block type="flag_start" x="1400" y="20">
+    <next>
+      <block type="variables_set">
+        <field name="VAR">full_name</field>
+        <value name="VALUE">
+          <block type="text_join">
+            <mutation items="2"></mutation>
+            <value name="ADD0"><block type="text_literal"><field name="TEXT">Іван </field></block></value>
+            <value name="ADD1"><block type="text_literal"><field name="TEXT">Петренко</field></block></value>
+          </block>
+        </value>
+        <next>
+          <block type="print">
+            <value name="VALUE">
+              <block type="text_length">
+                <value name="VALUE"><block type="variables_get"><field name="VAR">full_name</field></block></value>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set">
+                <field name="VAR">nums</field>
+                <value name="VALUE">
+                  <block type="lists_create_with">
+                    <mutation items="3"></mutation>
+                    <value name="ADD0"><block type="math_number"><field name="NUM">1</field></block></value>
+                    <value name="ADD1"><block type="math_number"><field name="NUM">2</field></block></value>
+                    <value name="ADD2"><block type="math_number"><field name="NUM">3</field></block></value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set">
+                    <field name="VAR">empty_list</field>
+                    <value name="VALUE">
+                      <block type="lists_create_with">
+                        <mutation items="0"></mutation>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="print">
+                        <value name="VALUE">
+                          <block type="lists_length">
+                            <value name="VALUE"><block type="variables_get"><field name="VAR">nums</field></block></value>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="print">
+                            <value name="VALUE">
+                              <block type="lists_isEmpty">
+                                <value name="VALUE"><block type="variables_get"><field name="VAR">empty_list</field></block></value>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="print">
+                                <value name="VALUE">
+                                  <block type="lists_getIndex">
+                                    <mutation statement="false" at="true"></mutation>
+                                    <field name="MODE">GET</field>
+                                    <field name="WHERE">FROM_START</field>
+                                    <value name="VALUE"><block type="variables_get"><field name="VAR">nums</field></block></value>
+                                    <value name="AT"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="print">
+                                    <value name="VALUE">
+                                      <block type="lists_getIndex">
+                                        <mutation statement="false" at="false"></mutation>
+                                        <field name="MODE">GET</field>
+                                        <field name="WHERE">LAST</field>
+                                        <value name="VALUE"><block type="variables_get"><field name="VAR">nums</field></block></value>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="lists_setIndex">
+                                        <mutation at="true"></mutation>
+                                        <field name="WHERE">FROM_START</field>
+                                        <value name="LIST"><block type="variables_get"><field name="VAR">nums</field></block></value>
+                                        <value name="AT"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                        <value name="TO"><shadow type="math_number"><field name="NUM">99</field></shadow></value>
+                                      </block>
+                                      <next>
+                                        <block type="print">
+                                          <value name="VALUE">
+                                            <block type="lists_indexOf">
+                                              <field name="END">FIRST</field>
+                                              <value name="VALUE"><block type="variables_get"><field name="VAR">nums</field></block></value>
+                                              <value name="FIND"><block type="math_number"><field name="NUM">2</field></block></value>
+                                            </block>
+                                          </value>
+                                        </block>
+                                      </next>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       5) ФУНКЦІЇ — визначення (з параметром і тілом), виклик,
+          function_parameter усередині тіла
+       ===================================================================== -->
+  <block type="flag_start" x="1860" y="20">
+    <next>
+      <block type="define_function">
+        <field name="FUNC_NAME">greet</field>
+        <field name="PARAMS">name</field>
+        <statement name="BODY">
+          <block type="print">
+            <value name="VALUE"><block type="function_parameter"><field name="PARAM_NAME">name</field></block></value>
+          </block>
+        </statement>
+        <next>
+          <block type="call_function">
+            <field name="FUNC">greet</field>
+            <field name="ARGS">"Світ"</field>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       6) "ВТЕЧА" У СИРИЙ PYTHON — raw_python_line / raw_python_block /
+          raw_python_expr (навмисний фолбек-механізм round-trip код↔блоки)
+       ===================================================================== -->
+  <block type="flag_start" x="2200" y="20">
+    <next>
+      <block type="raw_python_line">
+        <field name="CODE">from datetime import datetime</field>
+        <next>
+          <block type="raw_python_block">
+            <field name="CODE">for k, v in {"a": 1}.items():↵    print(k, v)</field>
+            <next>
+              <block type="print">
+                <value name="VALUE"><block type="raw_python_expr"><field name="CODE">datetime.now().year</field></block></value>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       7) TKINTER — розширення js/extensions/tkinter.js (напрямок Блоки→Код
+          повний; напрямок Код→Блоки залежить від власних розпізнавачів
+          розширення — UPY_LINE_RECOGNIZERS)
+       ===================================================================== -->
+  <block type="flag_start" x="20" y="900">
+    <next>
+      <block type="import_tkinter">
+        <next>
+          <block type="import_tkinter_messagebox">
+            <next>
+              <block type="tk_create_root">
+                <field name="VAR">root</field>
+                <next>
+                  <block type="tk_set_title">
+                    <field name="VAR">root</field>
+                    <field name="TITLE">Моя програма</field>
+                    <next>
+                      <block type="tk_set_geometry">
+                        <field name="VAR">root</field>
+                        <field name="W">300</field>
+                        <field name="H">200</field>
+                        <next>
+                          <block type="tk_create_label">
+                            <field name="VAR">label1</field>
+                            <field name="PARENT">root</field>
+                            <field name="TEXT">Привіт!</field>
+                            <next>
+                              <block type="tk_create_entry">
+                                <field name="VAR">entry1</field>
+                                <field name="PARENT">root</field>
+                                <next>
+                                  <block type="tk_create_intvar">
+                                    <field name="VAR">check_var</field>
+                                    <next>
+                                      <block type="tk_create_stringvar">
+                                        <field name="VAR">radio_var</field>
+                                        <field name="DEFAULT">Чоловіча</field>
+                                        <next>
+                                          <block type="tk_create_button">
+                                            <field name="VAR">btn</field>
+                                            <field name="PARENT">root</field>
+                                            <field name="TEXT">Натисни</field>
+                                            <field name="ONCLICK"></field>
+                                            <next>
+                                              <block type="tk_create_checkbutton">
+                                                <field name="VAR">check_btn</field>
+                                                <field name="PARENT">root</field>
+                                                <field name="TEXT">Отримувати новини</field>
+                                                <field name="VARIABLE">check_var</field>
+                                                <next>
+                                                  <block type="tk_create_radiobutton">
+                                                    <field name="VAR">radio_1</field>
+                                                    <field name="PARENT">root</field>
+                                                    <field name="TEXT">Чоловіча</field>
+                                                    <field name="VARIABLE">radio_var</field>
+                                                    <field name="VALUE">Чоловіча</field>
+                                                    <next>
+                                                      <block type="tk_pack">
+                                                        <field name="VAR">label1</field>
+                                                        <field name="PADY">5</field>
+                                                        <next>
+                                                          <block type="tk_pack">
+                                                            <field name="VAR">entry1</field>
+                                                            <field name="PADY">5</field>
+                                                            <next>
+                                                              <block type="tk_pack">
+                                                                <field name="VAR">btn</field>
+                                                                <field name="PADY">5</field>
+                                                                <next>
+                                                                  <block type="tk_messagebox_showinfo">
+                                                                    <field name="TITLE">Результат</field>
+                                                                    <value name="MESSAGE">
+                                                                      <block type="tk_entry_get">
+                                                                        <field name="VAR">entry1</field>
+                                                                      </block>
+                                                                    </value>
+                                                                    <next>
+                                                                      <block type="print">
+                                                                        <value name="VALUE"><block type="tk_var_get"><field name="VAR">check_var</field></block></value>
+                                                                        <next>
+                                                                          <block type="tk_mainloop">
+                                                                            <field name="VAR">root</field>
+                                                                          </block>
+                                                                        </next>
+                                                                      </block>
+                                                                    </next>
+                                                                  </block>
+                                                                </next>
+                                                              </block>
+                                                            </next>
+                                                          </block>
+                                                        </next>
+                                                      </block>
+                                                    </next>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <!-- =====================================================================
+       8) RASPBERRY PI PICO — розширення js/extensions/pico.js: GPIO, ADC,
+          NeoPixel, OLED (ssd1306), LCD1602, DHT, HC-SR04, сервопривід
+       ===================================================================== -->
+  <block type="flag_start" x="480" y="900">
+    <next>
+      <block type="import_machine">
+        <next>
+          <block type="import_time">
+            <next>
+              <block type="pico_pin_setup">
+                <field name="VAR">led</field>
+                <field name="PIN">25</field>
+                <field name="MODE">OUT</field>
+                <next>
+                  <block type="pico_pin_setup">
+                    <field name="VAR">button</field>
+                    <field name="PIN">14</field>
+                    <field name="MODE">IN</field>
+                    <next>
+                      <block type="pico_pin_value_set">
+                        <field name="VAR">led</field>
+                        <field name="VALUE">1</field>
+                        <next>
+                          <block type="pico_pin_toggle">
+                            <field name="VAR">led</field>
+                            <next>
+                              <block type="print">
+                                <value name="VALUE"><block type="pico_pin_value_get"><field name="VAR">button</field></block></value>
+                                <next>
+                                  <block type="print">
+                                    <value name="VALUE"><block type="pico_adc_read"><field name="PIN">26</field></block></value>
+                                    <next>
+                                      <block type="pico_sleep">
+                                        <value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                                        <next>
+                                          <block type="servo_attach">
+                                            <field name="VAR">servo1</field>
+                                            <field name="PIN">15</field>
+                                            <next>
+                                              <block type="servo_set_freq">
+                                                <field name="VAR">servo1</field>
+                                                <field name="HZ">50</field>
+                                                <next>
+                                                  <block type="servo_set_angle">
+                                                    <field name="VAR">servo1</field>
+                                                    <value name="ANGLE"><shadow type="math_number"><field name="NUM">90</field></shadow></value>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <block type="flag_start" x="940" y="900">
+    <next>
+      <block type="import_neopixel">
+        <next>
+          <block type="neopixel_create">
+            <field name="VAR">np</field>
+            <field name="PIN">0</field>
+            <field name="COUNT">8</field>
+            <next>
+              <block type="neopixel_set">
+                <field name="VAR">np</field>
+                <field name="INDEX">0</field>
+                <field name="R">255</field>
+                <field name="G">0</field>
+                <field name="B">0</field>
+                <next>
+                  <block type="neopixel_fill">
+                    <field name="VAR">np</field>
+                    <field name="R">0</field>
+                    <field name="G">255</field>
+                    <field name="B">0</field>
+                    <next>
+                      <block type="neopixel_write">
+                        <field name="VAR">np</field>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <block type="flag_start" x="1400" y="900">
+    <next>
+      <block type="import_ssd1306">
+        <next>
+          <block type="oled_create">
+            <field name="VAR">oled</field>
+            <field name="WIDTH">128</field>
+            <field name="HEIGHT">64</field>
+            <field name="I2C_ID">0</field>
+            <field name="SCL">1</field>
+            <field name="SDA">0</field>
+            <next>
+              <block type="oled_fill">
+                <field name="VAR">oled</field>
+                <field name="COLOR">0</field>
+                <next>
+                  <block type="oled_text">
+                    <field name="VAR">oled</field>
+                    <field name="TEXT">Привіт!</field>
+                    <field name="X">0</field>
+                    <field name="Y">0</field>
+                    <next>
+                      <block type="oled_show">
+                        <field name="VAR">oled</field>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <block type="flag_start" x="1860" y="900">
+    <next>
+      <block type="import_lcd1602">
+        <next>
+          <block type="lcd_create">
+            <field name="VAR">lcd</field>
+            <field name="I2C_ID">0</field>
+            <field name="SCL">1</field>
+            <field name="SDA">0</field>
+            <field name="ADDR">0x27</field>
+            <field name="ROWS">2</field>
+            <field name="COLS">16</field>
+            <next>
+              <block type="lcd_clear">
+                <field name="VAR">lcd</field>
+                <next>
+                  <block type="lcd_move_to">
+                    <field name="VAR">lcd</field>
+                    <field name="COL">0</field>
+                    <field name="ROW">0</field>
+                    <next>
+                      <block type="lcd_putstr">
+                        <field name="VAR">lcd</field>
+                        <field name="TEXT">Привіт!</field>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+  <block type="flag_start" x="2200" y="900">
+    <next>
+      <block type="import_dht">
+        <next>
+          <block type="dht_create">
+            <field name="VAR">sensor</field>
+            <field name="TYPE">DHT22</field>
+            <field name="PIN">15</field>
+            <next>
+              <block type="dht_measure">
+                <field name="VAR">sensor</field>
+                <next>
+                  <block type="print">
+                    <value name="VALUE"><block type="dht_temperature"><field name="VAR">sensor</field></block></value>
+                    <next>
+                      <block type="print">
+                        <value name="VALUE"><block type="dht_humidity"><field name="VAR">sensor</field></block></value>
+                        <next>
+                          <block type="import_hcsr04">
+                            <next>
+                              <block type="hcsr04_create">
+                                <field name="VAR">sonar</field>
+                                <field name="TRIG">5</field>
+                                <field name="ECHO">18</field>
+                                <next>
+                                  <block type="print">
+                                    <value name="VALUE"><block type="hcsr04_distance"><field name="VAR">sonar</field></block></value>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+
+</xml>
