@@ -175,4 +175,3 @@ test('t_forward: рухає ЗМІННУ поточну черепаху (curren
     assert.equal(PY['t_forward'](moveBlock), 'my_turtle.forward(100)\n');
 });
 
-
