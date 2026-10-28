@@ -129,6 +129,20 @@ function builtinRead(x) {
     return Sk.builtinFiles['files'][x];
 }
 
+// Введення для input("..."): текст запитання показуємо у системному вікні.
+// Типово Skulpt (inputfunTakesPrompt=false) пише запитання в панель виводу, а
+// вікно відкриває без тексту. З inputfunTakesPrompt=true текст приходить сюди.
+// Запит і введене значення дублюються в панелі виконання (внизу праворуч),
+// як у звичайній консолі: "Введіть значення: 5".
+function skulptInputFun(prompt) {
+    const text = prompt == null ? '' : String(prompt);
+    outf(text);
+    const answer = window.prompt(text);
+    const value = answer === null ? '' : answer;
+    outf(value + '\n');
+    return value;
+}
+
 // ================= STATUS HELPER =================
 function setStatus(text, kind) {
     const el = document.getElementById('status');
@@ -295,9 +309,18 @@ const AUTOSAVE_KEY = 'uPy.autosave.xml';
 function autoSaveWorkspace() {
     try {
         const dom = Blockly.Xml.workspaceToDom(workspace);
+        // Теорія і назва уроку (js/lesson-panel.js) — так само, як у «Save .xml»,
+        // щоб після збою браузера вони теж відновлювалися.
+        if (typeof window.augmentProjectDom === 'function') window.augmentProjectDom(dom);
         localStorage.setItem(AUTOSAVE_KEY, Blockly.Xml.domToText(dom));
     } catch (e) { console.warn('Auto-save failed:', e); }
 }
+// Відкладене автозбереження для змін, які не є змінами блоків (наприклад, теорія).
+let autosaveTimer = null;
+window.scheduleAutosave = function () {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autoSaveWorkspace, 500);
+};
 async function restoreAutoSavedWorkspace() {
     try {
         const xml = localStorage.getItem(AUTOSAVE_KEY);
@@ -313,6 +336,8 @@ async function restoreAutoSavedWorkspace() {
             suppressFunctionFieldSync = false;
         }
         if (window.__syncFunctionFields) window.__syncFunctionFields();
+        // Відновлюємо урок і теорію, але панель не відкриваємо: вчитель її не просив.
+        if (typeof window.restoreLessonState === 'function') window.restoreLessonState(xml);
     } catch (e) { console.warn('Auto-restore failed:', e); }
 }
 function workspaceHasBlocks() {
@@ -521,6 +546,48 @@ function normalizeSpacing(text) {
     return out;
 }
 
+// Прибирає пробіл(и) між назвою range та "(": "range (5)" → "range(5)".
+// Поза рядковими літералами (вміст "..." / '...' не чіпаємо). Перевіряємо
+// межу слова зліва, щоб не зачепити імена на кшталт "myrange (".
+function removeSpaceBeforeRangeParen(text) {
+    let out = '', inStr = null;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (inStr) {
+            out += c;
+            if (c === '\\' && i + 1 < text.length) { out += text[i + 1]; i++; continue; }
+            if (c === inStr) inStr = null;
+            continue;
+        }
+        if (c === '"' || c === "'") { inStr = c; out += c; continue; }
+        const wordStart = i === 0 || !/\w/.test(text[i - 1]);
+        if (wordStart && text.startsWith('range', i)) {
+            let j = i + 5;
+            while (j < text.length && text[j] === ' ') j++;
+            if (j > i + 5 && text[j] === '(') {
+                out += 'range(';
+                i = j;
+                continue;
+            }
+        }
+        out += c;
+    }
+    return out;
+}
+
+// Розгортає складене присвоєння в явне: "k+=1" → "k = k + 1", "k *= n+1" → "k = k * (n+1)".
+// Так код стає збіжним з канонічною формою генератора і розпізнається як
+// math_change (для +) або variables_set (для інших операторів).
+// Не чіпає "==", "<=", ">=", "!=", а також присвоєння за індексом (a[0] += 1).
+function expandAugmentedAssignment(text) {
+    const m = text.match(/^([A-Za-z_]\w*)\s*([+\-*\/])=(?!=)\s*(.+)$/);
+    if (!m) return text;
+    const rhs = m[3].trim();
+    const simple = /^[A-Za-z_0-9.]+$/.test(rhs);
+    const operand = simple ? rhs : `(${rhs})`;
+    return `${m[1]} = ${m[1]} ${m[2]} ${operand}`;
+}
+
 function tokenizeLines(code) {
     const rawLines = code.replace(/\t/g, '    ').split('\n')
         .map(l => l.replace(/\r$/, ''))
@@ -536,6 +603,7 @@ function tokenizeLines(code) {
     function endsWithContinuationToken(text) {
         const t = text.trimEnd();
         if (t === '') return false;
+        if (/\bimport\s+\*$/.test(t)) return false; // "from math import *" — * тут не оператор
         if (/\.$/.test(t)) return true; // "neopixel."
         if (/(?:[+\-*/%,]|\*\*|==|!=|<=|>=|=)\s*$/.test(t)) return true; // "x =", "a +", "f(x,"
         if (/\b(and|or|not|in|is)$/.test(t)) return true;
@@ -561,6 +629,9 @@ function tokenizeLines(code) {
             buf = raw;
             stack = scanBracketStack(raw, []);
         } else {
+            // Явний перенос рядка символом \ (Python line continuation):
+            // прибираємо \ і приєднуємо наступний рядок.
+            if (/\\\s*$/.test(buf)) buf = buf.replace(/\\\s*$/, '');
             // Якщо попередній рядок обірвався на "." — приєднуємо БЕЗ
             // пробілу (щоб лишилось "neopixel.NeoPixel(...)", а не
             // "neopixel. NeoPixel(...)" — друге теж технічно валідний
@@ -570,7 +641,7 @@ function tokenizeLines(code) {
             scanBracketStack(raw, stack);
             autoFixes.push('merged_broken_line');
         }
-        if (stack.length > 0 || endsWithContinuationToken(buf)) continue; // ще не завершено — чекаємо продовження
+        if (stack.length > 0 || endsWithContinuationToken(buf) || /\\\s*$/.test(buf)) continue; // ще не завершено — чекаємо продовження
         parenMerged.push(buf);
         buf = null; stack = [];
     }
@@ -608,17 +679,39 @@ function tokenizeLines(code) {
     // КРОК 3: індентація + нормалізація зайвих/недостатніх пробілів у
     // самому вмісті рядка (не в лідируючих відступах — вони визначають
     // структуру блоків і не чіпаються).
+    // БАГФІКС ("через пробіли блок не відображається"): новий рівень вкладеності
+    // створюємо ЛИШЕ після рядка-заголовка (той, що закінчується на ":").
+    // Раніше будь-який зайвий пробіл (на початку коду, у тілі циклу чи перед
+    // рядком після циклу) створював фіктивний рівень, і парсер мовчки
+    // губив решту програми або ставив рядки не в той цикл.
     const indentStack = [0];
     const result = [];
+    let prevOpensBlock = false;
     for (const line of joined) {
         const trimmed = line.trim();
         if (trimmed === '') continue;
         const width = (line.match(/^ */) || [''])[0].length;
-        const normalized = normalizeSpacing(trimmed);
+        let normalized = normalizeSpacing(trimmed);
         if (normalized !== trimmed) autoFixes.push('normalized_spacing');
+        // АВТОВИПРАВЛЕННЯ: "range (5)" → "range(5)" (пробіл між range і дужкою)
+        const noRangeSpace = removeSpaceBeforeRangeParen(normalized);
+        if (noRangeSpace !== normalized) {
+            normalized = noRangeSpace;
+            autoFixes.push('removed_space_before_paren');
+        }
+        // АВТОВИПРАВЛЕННЯ: складене присвоєння "k+=1" → "k = k + 1"
+        const expanded = expandAugmentedAssignment(normalized);
+        if (expanded !== normalized) {
+            normalized = expanded;
+            autoFixes.push('expanded_augmented_assignment');
+        }
         while (indentStack.length > 1 && width < indentStack[indentStack.length - 1]) indentStack.pop();
-        if (width > indentStack[indentStack.length - 1]) indentStack.push(width);
+        if (width > indentStack[indentStack.length - 1]) {
+            if (prevOpensBlock) indentStack.push(width);
+            else autoFixes.push('fixed_indentation'); // зайвий пробіл — не новий блок
+        }
         result.push({ indent: indentStack.length - 1, text: normalized });
+        prevOpensBlock = /:$/.test(normalized);
     }
 
     if (autoFixes.length && typeof window.reportCodeAutoFixes === 'function') {
@@ -684,7 +777,53 @@ function splitTopLevelComma(str) {
 
 const CMP_OPS = { '==': 'EQ', '!=': 'NEQ', '<=': 'LTE', '>=': 'GTE', '<': 'LT', '>': 'GT' };
 const ARITH_OPS = { '**': 'POWER', '+': 'ADD', '-': 'MINUS', '*': 'MULTIPLY', '/': 'DIVIDE' };
-const OP_TOKENS = ['**', '==', '!=', '<=', '>=', '<', '>', '+', '-', '*', '/'];
+// Пріоритет операторів Python (від найнижчого до найвищого). Усередині групи
+// оператори лівоасоціативні, крім ** (правоасоціативний).
+const OP_PRECEDENCE = {
+    '==': 0, '!=': 0, '<': 0, '<=': 0, '>': 0, '>=': 0,
+    '+': 1, '-': 1,
+    '*': 2, '/': 2, '//': 2, '%': 2,
+    '**': 3,
+};
+// Довші оператори перевіряються першими: '//' раніше за '/', '**' раніше за '*', '<=' раніше за '<'.
+const OP_ALL = Object.keys(OP_PRECEDENCE).sort((a, b) => b.length - a.length);
+
+// Чи є знак у позиції i бінарним оператором: не унарний "-"/"+" після іншого
+// оператора чи дужки і не експонента в літералі (1e-5).
+function isBinaryOperatorAt(str, i, op) {
+    const left = str.slice(0, i).trimEnd();
+    if (left === '') return false;
+    if (op === '+' || op === '-') {
+        const last = left[left.length - 1];
+        if ('+-*/%<>=!(,['.includes(last)) return false;
+        if (/\d(\.\d*)?e$/i.test(left)) return false;
+    }
+    return true;
+}
+
+// Обирає оператор розбиття за пріоритетом: найнижчий рівень; серед однакових —
+// останній (лівоасоціативність), для ** — перший. Так "a // b + 1" дає ADD(a//b, 1),
+// а "a * b // c" дає (a*b)//c. Раніше splitTopLevel брав ПЕРШИЙ оператор зліва.
+function splitByPrecedence(str) {
+    const hits = [];
+    let depth = 0, inStr = null;
+    for (let i = 0; i < str.length; i++) {
+        const c = str[i];
+        if (inStr) { if (c === '\\') { i++; continue; } if (c === inStr) inStr = null; continue; }
+        if (c === '"' || c === "'") { inStr = c; continue; }
+        if (c === '(' || c === '[') { depth++; continue; }
+        if (c === ')' || c === ']') { depth--; continue; }
+        if (depth !== 0) continue;
+        const op = OP_ALL.find(o => str.startsWith(o, i));
+        if (!op) continue;
+        if (isBinaryOperatorAt(str, i, op)) hits.push({ i, op, level: OP_PRECEDENCE[op] });
+        i += op.length - 1;
+    }
+    if (hits.length === 0) return null;
+    const minLevel = Math.min(...hits.map(h => h.level));
+    const same = hits.filter(h => h.level === minLevel);
+    return minLevel === OP_PRECEDENCE['**'] ? same[0] : same[same.length - 1];
+}
 
 function stripOuterParens(s) {
     s = s.trim();
@@ -792,8 +931,8 @@ function parseExpr(exprStrRaw) {
     // ніколи не розпізнавався назад. Знімаємо зовнішні дужки ПЕРЕД
     // пошуком '%' (так само, як це вже робиться нижче для '+','-','*','/').
     const modCandidate = stripOuterParens(s);
-    const modSplit = splitTopLevel(modCandidate, ['%'], false);
-    if (modSplit && modCandidate.slice(0, modSplit.i).trim() !== '' && modCandidate.slice(modSplit.i + 1).trim() !== '') {
+    const modSplit = splitByPrecedence(modCandidate);
+    if (modSplit && modSplit.op === '%' && modCandidate.slice(0, modSplit.i).trim() !== '' && modCandidate.slice(modSplit.i + 1).trim() !== '') {
         const dividend = modCandidate.slice(0, modSplit.i).trim();
         const divisor = modCandidate.slice(modSplit.i + 1).trim();
         return `<block type="math_modulo"><value name="DIVIDEND">${parseExpr(dividend)}</value><value name="DIVISOR">${parseExpr(divisor)}</value></block>`;
@@ -894,7 +1033,7 @@ function parseExpr(exprStrRaw) {
         return `<block type="variables_get"><field name="VAR">${escapeXml(s)}</field></block>`;
     }
     const stripped = stripOuterParens(s);
-    const split = splitTopLevel(stripped, OP_TOKENS, false);
+    const split = splitByPrecedence(stripped);
     if (split) {
         const left = stripped.slice(0, split.i).trim();
         const right = stripped.slice(split.i + split.op.length).trim();
@@ -902,7 +1041,8 @@ function parseExpr(exprStrRaw) {
             if (CMP_OPS[split.op]) {
                 return `<block type="logic_compare"><field name="OP">${CMP_OPS[split.op]}</field><value name="A">${parseExpr(left)}</value><value name="B">${parseExpr(right)}</value></block>`;
             }
-            return `<block type="math_arithmetic"><field name="OP">${ARITH_OPS[split.op]}</field><value name="A">${parseExpr(left)}</value><value name="B">${parseExpr(right)}</value></block>`;
+            if (split.op === '//') return `<block type="math_floordiv"><value name="DIVIDEND">${parseExpr(left)}</value><value name="DIVISOR">${parseExpr(right)}</value></block>`;
+            if (ARITH_OPS[split.op]) return `<block type="math_arithmetic"><field name="OP">${ARITH_OPS[split.op]}</field><value name="A">${parseExpr(left)}</value><value name="B">${parseExpr(right)}</value></block>`;
         }
     }
     return `<block type="raw_python_expr"><field name="CODE">${escapeXml(s)}</field></block>`;
@@ -1019,6 +1159,16 @@ function parseDef(lines, idx, indent) {
     return { xml, nextIdx: body.nextIdx };
 }
 
+// Межа range() (ЕКСКЛЮЗИВНА) → значення TO-поля блоку controls_for
+// (ІНКЛЮЗИВНЕ). Симетрично до PY['controls_for'] у blocks-turtle.js.
+function rangeStopToBlockTo(raw) {
+    const t = raw.trim();
+    const plus = t.match(/^(.+?)\s\+\s1$/);
+    if (plus) return plus[1].trim();
+    if (/^-?\d+$/.test(t)) return String(Number(t) - 1);
+    return `${t} - 1`;
+}
+
 function parseOneStatement(lines, idx, indent) {
     const text = lines[idx].text;
     let m;
@@ -1116,23 +1266,21 @@ function parseOneStatement(lines, idx, indent) {
     // не знаходив жодної згадки controls_for) — рядок завжди йшов у
     // raw_python_block. Перевіряємо ПЕРЕД parseForRepeat (controls_repeat_ext),
     // щоб не переплутати — той відрізняється кількістю аргументів range().
-    if ((m = text.match(/^for\s+([A-Za-z_]\w*)\s+in\s+range\((.+)\):$/))) {
-        const parts = splitTopLevelComma(m[2]);
-        if (parts.length === 3) {
-            const fromExpr = parts[0].trim();
-            const toRaw = parts[1].trim();
-            const byExpr = parts[2].trim();
-            // TO завжди у форматі "EXPR + 1" (симетрично до генератора,
-            // який завжди дописує "+ 1" до TO-виразу).
-            const toMatch = toRaw.match(/^(.+?)\s\+\s1$/);
-            if (toMatch) {
-                const toExpr = toMatch[1].trim();
-                let j = idx + 1;
-                const body = parseBlockSequence(lines, j, indent + 1);
-                const stmt = body.xml ? `<statement name="DO">${body.xml}</statement>` : '';
-                const xml = `<block type="controls_for"><field name="VAR">${escapeXml(m[1])}</field><value name="FROM">${parseExpr(fromExpr)}</value><value name="TO">${parseExpr(toExpr)}</value><value name="BY">${parseExpr(byExpr)}</value>${stmt}</block>`;
-                return { xml, nextIdx: body.nextIdx };
-            }
+    // БАГФІКС (цикли): range(n), range(a, b) і range(a, b, c) раніше йшли у
+    // raw_python_block — блок циклу з'являвся лише для трьохаргументного
+    // форми, яку пише ТІЛЬКИ наш генератор. Тепер розпізнаємо всі три форми.
+    // "for _ in range(N)" — це блок "повторити N разів" (controls_repeat_ext), не цикл з лічильником.
+    if ((m = text.match(/^for\s+([A-Za-z_]\w*)\s+in\s+range\((.+)\):$/)) && m[1] !== '_') {
+        const parts = splitTopLevelComma(m[2]).map(p => p.trim());
+        if (parts.length >= 1 && parts.length <= 3 && parts.every(p => p !== '')) {
+            const fromExpr = parts.length === 1 ? '0' : parts[0];
+            const toRaw = parts.length === 1 ? parts[0] : parts[1];
+            const byExpr = parts.length === 3 ? parts[2] : '1';
+            const toExpr = rangeStopToBlockTo(toRaw);
+            const body = parseBlockSequence(lines, idx + 1, indent + 1);
+            const stmt = body.xml ? `<statement name="DO">${body.xml}</statement>` : '';
+            const xml = `<block type="controls_for"><field name="VAR">${escapeXml(m[1])}</field><value name="FROM">${parseExpr(fromExpr)}</value><value name="TO">${parseExpr(toExpr)}</value><value name="BY">${parseExpr(byExpr)}</value>${stmt}</block>`;
+            return { xml, nextIdx: body.nextIdx };
         }
     }
 
@@ -1147,8 +1295,18 @@ function parseOneStatement(lines, idx, indent) {
 
 function pythonToBlocklyXml(code) {
     const lines = tokenizeLines(code);
-    const { xml } = parseBlockSequence(lines, 0, 0);
-    return `<xml xmlns="https://developers.google.com/blockly/xml">${xml}</xml>`;
+    // БАГФІКС: раніше брали лише xml від parseBlockSequence(lines, 0, 0), а
+    // nextIdx ігнорували — усе після першого рядка з "неочікуваним" відступом
+    // мовчки зникало з блоків. Тепер обходимо ВЕСЬ код до кінця.
+    const blockXmls = [];
+    let idx = 0;
+    while (idx < lines.length) {
+        const result = parseOneStatement(lines, idx, lines[idx].indent);
+        if (result.xmls) blockXmls.push(...result.xmls);
+        else blockXmls.push(result.xml);
+        idx = result.nextIdx > idx ? result.nextIdx : idx + 1;
+    }
+    return `<xml xmlns="https://developers.google.com/blockly/xml">${chainBlocks(blockXmls)}</xml>`;
 }
 
 async function applyCodeToBlocks(code) {
@@ -1219,7 +1377,10 @@ async function runCode() {
     setStatus(t('status_running'), 'running');
     try {
         // IMPROVEMENT: ліміт часу виконання, щоб нескінченний цикл не вішав вкладку.
-        Sk.configure({ output: outf, read: builtinRead, execLimit: 15000, yieldLimit: 100 });
+        Sk.configure({
+            output: outf, read: builtinRead, execLimit: 15000, yieldLimit: 100,
+            inputfunTakesPrompt: true, inputfun: skulptInputFun,
+        });
 
         const area = document.getElementById('turtle-area');
         const w = Math.max(300, Math.floor(area.clientWidth) || 600);
@@ -1248,8 +1409,8 @@ async function runCode() {
 // XML-текст замість єдиної вбудованої константи, оскільки тепер уроків
 // (потенційно) багато, а не один "Приклад" у спадному меню.
 window.loadLessonXml = async function loadLessonXml(xmlText, lessonName) {
-    if (!xmlText) return;
-    if (workspaceHasBlocks() && !confirm(t('confirm_load_example'))) return;
+    if (!xmlText) return false;
+    if (workspaceHasBlocks() && !confirm(t('confirm_load_example'))) return false;
     if (window.ensureModulesForXmlText) await window.ensureModulesForXmlText(xmlText);
     suppressAutoRefresh = true;
     suppressFunctionFieldSync = true; // FIX: див. коментар біля registerFunctionBlockWatcher() у blocks-turtle.js
@@ -1263,6 +1424,7 @@ window.loadLessonXml = async function loadLessonXml(xmlText, lessonName) {
     if (window.__syncFunctionFields) window.__syncFunctionFields();
     refreshCode();
     setStatus(t('status_example_loaded'), 'ready');
+    return true;
 };
 
 // ================= SAVE / LOAD у файл .xml, DOWNLOAD .py =================
@@ -1280,6 +1442,8 @@ function downloadTextFile(text, filename, mime) {
 function saveProjectXml() {
     try {
         const dom = Blockly.Xml.workspaceToDom(workspace);
+        // Теорія і назва уроку (js/lesson-panel.js) зберігаються разом з блоками.
+        if (typeof window.augmentProjectDom === 'function') window.augmentProjectDom(dom);
         const xml = Blockly.Xml.domToPrettyText(dom);
         downloadTextFile(xml, 'project.xml', 'application/xml');
         setStatus(t('status_project_saved'), 'done');
@@ -1309,6 +1473,8 @@ function handleProjectFileUpload(evt) {
             if (window.__syncFunctionFields) window.__syncFunctionFields();
             refreshCode();
             setStatus(t('status_project_loaded'), 'ready');
+            // Якщо у файлі є вбудована теорія — показуємо панель (js/lesson-panel.js).
+            if (typeof window.onProjectXmlLoaded === 'function') window.onProjectXmlLoaded(reader.result);
         } catch (e) {
             console.error(e);
             setStatus(t('status_invalid_xml'), 'error');
