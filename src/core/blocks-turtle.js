@@ -434,6 +434,19 @@ function defineBlocksAndGenerators() {
     };
     PY['to_str'] = block => [`str(${valueToCode(block, 'VALUE', '0')})`, 0];
     PY['math_modulo'] = block => [`(${valueToCode(block, 'DIVIDEND', '0')} % ${valueToCode(block, 'DIVISOR', '1')})`, 0];
+    // Ділення на ціле (floor division): a // b. Тулбокс і парсер — як у math_modulo.
+    Blockly.Blocks['math_floordiv'] = {
+        init: function() {
+            // Порядок: "Ціле ділення" [A] // [B] — як у категорії Math (зелений).
+            this.appendValueInput('DIVIDEND').setCheck('Number').appendField(t('blk_math_floordiv'));
+            this.appendValueInput('DIVISOR').setCheck('Number').appendField('//');
+            this.setInputsInline(true);
+            this.setOutput(true, 'Number');
+            this.setColour('#10b981');
+            this.setTooltip(t('blktip_math_floordiv'));
+        }
+    };
+    PY['math_floordiv'] = block => [`(${valueToCode(block, 'DIVIDEND', '0')} // ${valueToCode(block, 'DIVISOR', '1')})`, 0];
     PY['math_round'] = block => {
         const op = block.getFieldValue('OP');
         const v = valueToCode(block, 'NUM', '0');
@@ -560,13 +573,36 @@ function defineBlocksAndGenerators() {
         return `for _ in range(${repeats}):\n${statementToCode(block, 'DO')}`;
     };
 
+    // Межа range() (ЕКСКЛЮЗИВНА) для TO-поля (ІНКЛЮЗИВНЕ). Виводимо ЧИСТІ
+    // форми: range(n), range(a, b), range(a, b, c) — а не "range(0, n - 1 + 1, 1)".
+    // Симетрично до rangeStopToBlockTo() у workspace.js, щоб код→блоки→код
+    // не змінював цикл при кожній синхронізації.
+    function forStopCode(block) {
+        const toBlock = block.getInputTargetBlock('TO');
+        if (!toBlock) return '11'; // дефолт TO=10 (включно) → 11 (виключно)
+        if (toBlock.type === 'math_number') {
+            const n = Number(toBlock.getFieldValue('NUM'));
+            if (Number.isFinite(n)) return String(n + 1);
+        }
+        if (toBlock.type === 'math_arithmetic' && toBlock.getFieldValue('OP') === 'MINUS') {
+            const b = toBlock.getInputTargetBlock('B');
+            if (b && b.type === 'math_number' && Number(b.getFieldValue('NUM')) === 1) {
+                return valueToCode(toBlock, 'A', '0');
+            }
+        }
+        return `${valueToCode(block, 'TO', '10')} + 1`;
+    }
+
     PY['controls_for'] = function(block) {
         const varField = block.getField('VAR');
         const varName = varField ? varField.getText() : 'i';
         const from = valueToCode(block, 'FROM', '0');
-        const to = valueToCode(block, 'TO', '10');
         const by = valueToCode(block, 'BY', '1');
-        return `for ${varName} in range(${from}, ${to} + 1, ${by}):\n${statementToCode(block, 'DO')}`;
+        const stop = forStopCode(block);
+        let args;
+        if (by === '1') args = from === '0' ? stop : `${from}, ${stop}`;
+        else args = `${from}, ${stop}, ${by}`;
+        return `for ${varName} in range(${args}):\n${statementToCode(block, 'DO')}`;
     };
 
     // Function blocks
@@ -671,4 +707,3 @@ function registerFunctionBlockWatcher() {
     // місць, перелічених у коментарі вище.
     window.__syncFunctionFields = () => syncFunctionFields(true);
 }
-
