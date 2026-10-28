@@ -27,6 +27,9 @@
        вони автоматично виявлені у завантаженому .xml/коді. -->
   <script src="js/extensions.js"></script>
   <script src="js/lessons.js"></script>
+  <script src="js/theory-markdown.js"></script>
+  <script src="js/theory-editor.js"></script>
+  <script src="js/lesson-panel.js"></script>
 
   <!-- Skulpt (виконання "голого" Python + Turtle у браузері).
        Vendored локально (js/vendor/skulpt/, версія 1.2.0, точна та сама,
@@ -63,6 +66,7 @@
 
   <span id="status" class="status status-ready" data-i18n="status_ready">Ready</span>
   <button id="lessonsBtn" class="hamburger-btn" title="Уроки" data-i18n-title="title_lessons" style="width:auto;padding:0 10px;font-size:13px">📖 <span data-i18n="btn_lessons">Lessons</span></button>
+  <button id="lessonTheoryBtn" class="hamburger-btn" title="Теорія до уроку" data-i18n-title="title_lesson_theory" style="width:auto;padding:0 10px;font-size:13px">📘 <span data-i18n="btn_lesson_theory">Теорія</span></button>
   <button id="helpBtn" class="hamburger-btn" title="Про uPyth" data-i18n-title="title_help">?</button>
   <select id="langSelect" title="Interface language" data-i18n-title="title_lang_select"></select>
 </header>
@@ -237,6 +241,10 @@
         <value name="NUM"><shadow type="math_number"><field name="NUM">3.1</field></shadow></value>
     </block>
     <block type="math_modulo">
+        <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+        <value name="DIVISOR"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+    </block>
+    <block type="math_floordiv">
         <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
         <value name="DIVISOR"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
     </block>
