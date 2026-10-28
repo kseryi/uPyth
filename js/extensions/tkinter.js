@@ -3,18 +3,7 @@
 // =====================================================================
 // ⚠️ ВАЖЛИВА ТЕХНІЧНА ОСОБЛИВІСТЬ: виконання Python тут відбувається через
 // Skulpt, який НЕ підтримує Tkinter (справжні вікна ОС неможливо
-// відтворити всередині вкладки браузера). Тому блоки нижче:
-//   1) генерують СПРАВЖНІЙ, коректний Python-код з tkinter (панель
-//      "2) Python Code") — скопіюйте його кнопкою "⬇ .py" і запустіть на
-//      комп'ютері (Thonny/IDLE/VS Code) — вікно з'явиться по-справжньому;
-//   2) під час "▶ Run" показують ПОПЕРЕДНІЙ ПЕРЕГЛЯД — чесно позначений
-//      як симуляція, а не справжнє виконання.
-//
-// АРХІТЕКТУРА КОДОГЕНЕРАЦІЇ (вимоги #1 і #9): кожен Python-оператор — це
-// ОКРЕМИЙ блок. Наприклад, кнопка — це СПОЧАТКУ "створити змінну = клас"
-// (tk_create_button: `btn = tk.Button(root, text=..., command=...)`), а
-// ОКРЕМИМ блоком — "показати" (tk_pack: `btn.pack(pady=...)`), так само,
-// як у "звичайному" tkinter-коді.
+// відтворити всередині вкладки браузера). 
 
 registerExtension('tkinter', function (ctx) {
     const PY = ctx.PY;
@@ -278,7 +267,11 @@ registerExtension('tkinter', function (ctx) {
         const snippet = defsCode + `\n${funcName}()\n`;
         outf(`\n▶ ${funcName}():`);
         try {
-            Sk.configure({ output: outf, read: (typeof builtinRead === 'function' ? builtinRead : undefined), execLimit: 5000, yieldLimit: 100 });
+            Sk.configure({
+                output: outf, read: (typeof builtinRead === 'function' ? builtinRead : undefined), execLimit: 5000, yieldLimit: 100,
+                inputfunTakesPrompt: true,
+                inputfun: (typeof skulptInputFun === 'function' ? skulptInputFun : undefined),
+            });
             await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, snippet, true));
         } catch (e) {
             const msg = e && e.toString ? e.toString() : String(e);
