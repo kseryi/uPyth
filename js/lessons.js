@@ -1,26 +1,14 @@
 // =====================================================================
 // lessons.js — каталог уроків (5 груп) + модальне вікно вибору уроку.
 // =====================================================================
-// Кожен урок — окремий .xml файл у теці /lessons/<група>/<файл>.xml.
-// XML завантажується напряму через fetch() з реального файлу — файл
-// НЕ дублюється в JS. Тому середовище обов'язково має бути відкрите
-// через локальний HTTP-сервер (не file://), як і зазначено в README —
-// це вже й так було вимогою проєкту через CORS-обмеження на інші ресурси
-// (js/extensions/*.js, бібліотеки для Pico).
-//
-// СТРУКТУРА КАТАЛОГУ (LESSON_GROUPS): 5 груп. Наразі наповнена лише
-// перша ("Приклади") — той приклад, що раніше був у спадному меню
-// "💡 Приклад". Решта груп — заготовки під майбутній контент (модальне
-// вікно чесно показує "незабаром", а не вигадані уроки).
 
-// id групи -> {name/nameEn через t(), icon, lessons: [{id, name-ключ, desc-ключ, xmlKey}]}
 window.LESSON_GROUPS = [
     {
         id: 'examples',
         icon: 'assets/icons/turtle.svg',
         titleKey: 'lessongrp_examples',
         lessons: [
-            { id: 'turtle-square', nameKey: 'lesson_turtle_square_name', descKey: 'lesson_turtle_square_desc', xmlKey: 'examples/turtle-square', icon: 'assets/icons/turtle.svg' }
+            { id: 'turtle-square', nameKey: 'lesson_turtle_square_name', descKey: 'lesson_turtle_square_desc', xmlKey: 'turtle-square', icon: 'assets/icons/turtle.svg' }
         ]
     },
     { id: 'python_basics', icon: 'assets/icons/code.svg', titleKey: 'lessongrp_python_basics', lessons: [] },
@@ -44,6 +32,24 @@ async function fetchLessonXml(xmlKey) {
     lessonXmlCache[xmlKey] = xmlText;
     return xmlText;
 }
+
+// Єдиний шлях відкриття уроку: завантажує блоки, потім показує теорію.
+// Використовують плитки каталогу, стрілки панелі теорії та інші виклики.
+window.openLessonById = async function openLessonById(id) {
+    const lesson = (window.LESSON_GROUPS || []).flatMap(g => g.lessons || []).find(l => l.id === id);
+    if (!lesson || typeof window.loadLessonXml !== 'function') return false;
+    try {
+        const xmlText = await fetchLessonXml(lesson.xmlKey);
+        const loaded = await window.loadLessonXml(xmlText, t(lesson.nameKey));
+        if (loaded === false) return false;          // користувач скасував заміну блоків
+        if (typeof window.showLessonTheory === 'function') window.showLessonTheory(lesson, xmlText);
+        return true;
+    } catch (err) {
+        console.error('Не вдалося завантажити урок', lesson.xmlKey, err);
+        if (typeof setStatus === 'function') setStatus(t('status_lesson_load_failed'), 'error');
+        return false;
+    }
+};
 
 (function initLessonsUI() {
     function buildModal() {
@@ -120,16 +126,7 @@ async function fetchLessonXml(xmlKey) {
 
                     tile.addEventListener('click', async () => {
                         overlay.style.display = 'none';
-                        if (typeof window.loadLessonXml !== 'function') return;
-                        try {
-                            const xmlText = await fetchLessonXml(lesson.xmlKey);
-                            await window.loadLessonXml(xmlText, t(lesson.nameKey));
-                        } catch (err) {
-                            console.error('Не вдалося завантажити урок', lesson.xmlKey, err);
-                            if (typeof setStatus === 'function') {
-                                setStatus(t('status_lesson_load_failed'), 'error');
-                            }
-                        }
+                        await window.openLessonById(lesson.id);
                     });
 
                     grid.appendChild(tile);
