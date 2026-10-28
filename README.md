@@ -1,6 +1,6 @@
 # uPyth
 
-[![CI](https://github.com/kseryi/uPyth/actions/workflows/ci.yml/badge.svg)](https://github.com/kseryi/uPyth/actions/workflows/ci.yml)
+[![CI](https://github.com/kseryi/uPyth/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kseryi/uPyth/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Навчальне середовище для вивчення Python через блоки (Blockly) з
