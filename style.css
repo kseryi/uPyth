@@ -630,7 +630,7 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    width: 108px !important;
+    width: 130px !important;
     padding: 14px 6px !important;
     gap: 4px;
     overflow-y: auto;
@@ -650,7 +650,7 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
     justify-content: center !important;
     gap: 6px !important;
     width: 100% !important;
-    padding: 10px 4px !important;
+    padding: 10px 1px !important;
     border-radius: 14px !important;
     cursor: pointer;
     transition: background-color .15s ease;
@@ -714,3 +714,81 @@ button.mini { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
     margin: 14px 0 6px;
 }
 .modal-group-header:first-child { margin-top: 2px; }
+
+/* ================= Уроки: висувна панель теорії (alpha) ================= */
+.lesson-panel {
+    position: fixed; right: 0; bottom: 0; top: 56px; width: 420px; max-width: 85vw;
+    display: flex; flex-direction: column;
+    background: var(--panel); color: var(--ink);
+    border-left: 1px solid #334155; box-shadow: -8px 0 24px rgba(0, 0, 0, .35);
+    transform: translateX(100%); transition: transform .25s ease;
+    z-index: 900;
+}
+.lesson-panel.open { transform: translateX(0); }
+.lp-resize { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.lp-resize:hover { background: rgba(96, 165, 250, .35); }
+.lp-head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px; border-bottom: 1px solid #334155;
+}
+.lp-title {
+    flex: 1; margin: 0; font-size: 15px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lp-btn {
+    background: var(--muted); color: var(--ink);
+    border: 1px solid #334155; border-radius: 6px;
+    padding: 4px 10px; cursor: pointer; font-size: 14px;
+}
+.lp-btn:disabled { opacity: .4; cursor: default; }
+.lp-close { font-size: 13px; }
+.lp-body { flex: 1; overflow: auto; padding: 14px 16px 24px; line-height: 1.55; font-size: 14px; }
+.lp-body h2 { font-size: 18px; margin: 0 0 8px; }
+.lp-body h3 { font-size: 15px; margin: 16px 0 6px; color: var(--accent); }
+.lp-body pre {
+    background: #0b1220; border: 1px solid #334155; border-radius: 6px;
+    padding: 10px; overflow: auto;
+}
+.lp-body code { font-family: Consolas, monospace; font-size: 13px; }
+.lp-body img { display: block; max-width: 100%; height: auto; margin: 8px 0; border-radius: 6px; background: #fff; }
+.lp-video { position: relative; padding-top: 56.25%; margin: 10px 0; }
+.lp-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lp-muted { color: #94a3b8; }
+.lp-picker-item {
+    display: block; width: 100%; text-align: left; margin: 6px 0; padding: 8px 10px;
+    background: var(--muted); color: var(--ink);
+    border: 1px solid #334155; border-radius: 6px; cursor: pointer;
+}
+.lp-picker-item small { display: block; color: #94a3b8; }
+@media (max-width: 700px) {
+    .lesson-panel { width: 100% !important; max-width: 100%; }
+    .lp-resize { display: none; }
+}
+
+/* ================= Редактор теорії (alpha) ================= */
+.lp-edit { font-size: 14px; }
+.te-wrap { display: flex; flex-direction: column; gap: 8px; height: 100%; }
+.te-title {
+    background: #0b1220; color: var(--ink); border: 1px solid #334155; border-radius: 6px;
+    padding: 6px 8px; font-size: 14px;
+}
+.te-bar { display: flex; flex-wrap: wrap; gap: 4px; }
+.te-btn { padding: 3px 8px; font-size: 12px; }
+.te-primary { background: var(--accent); color: #0b1220; border-color: var(--accent); font-weight: 600; }
+.te-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.te-in {
+    flex: 1 1 160px; min-width: 120px; background: #0b1220; color: var(--ink);
+    border: 1px solid #334155; border-radius: 6px; padding: 5px 8px; font-size: 13px;
+}
+.te-code {
+    width: 100%; background: #0b1220; color: var(--ink); border: 1px solid #334155;
+    border-radius: 6px; padding: 6px 8px; font-family: Consolas, monospace; font-size: 13px;
+}
+.te-text {
+    flex: 1; min-height: 240px; resize: vertical; background: #0b1220; color: var(--ink);
+    border: 1px solid #334155; border-radius: 6px; padding: 8px; font-family: Consolas, monospace; font-size: 13px;
+}
+.te-text[hidden] { display: none; }
+.te-preview { flex: 1; overflow: auto; border: 1px solid #334155; border-radius: 6px; padding: 8px; }
+.te-msg { color: var(--warn); font-size: 12px; min-height: 16px; }
+.te-foot { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
