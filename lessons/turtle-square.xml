@@ -1,0 +1,90 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <!-- Урок у форматі uPyth. Блоки — звичайні Blockly-блоки.
+       <lesson>: ідентифікатор і назва (за мовами).
+       <theory>: теорія HTML для панелі праворуч (lang="uk" / "en").
+       Зображення вбудовані як data:-URI, тож файл самодостатній. -->
+  <lesson id="turtle-square">
+    <title lang="uk">Квадрат за допомогою черепашки</title>
+    <title lang="en">Drawing a square with a turtle</title>
+  </lesson>
+  <theory lang="uk"><![CDATA[
+<h2>Квадрат за допомогою черепашки</h2>
+<p>Черепашка рухається по екрану, немов олівець. Команда <code>forward(120)</code> пересуває її вперед на 120 пікселів, а <code>right(90)</code> повертає її праворуч на 90°.</p>
+<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMzIwIiB3aWR0aD0iMzIwIiBoZWlnaHQ9IjMyMCI+CiAgPHJlY3Qgd2lkdGg9IjMyMCIgaGVpZ2h0PSIzMjAiIGZpbGw9IiNmZmZmZmYiLz4KICA8cmVjdCB4PSI2MCIgeT0iNjAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMyNTYzZWIiIHN0cm9rZS13aWR0aD0iNiIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTIsNTAgNTIsNzAgNzAsNjAiIGZpbGw9IiMxNmEzNGEiLz4KICA8dGV4dCB4PSIxNjAiIHk9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjI3MCIgeT0iMTY1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjE2MCIgeT0iMjg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjQwIiB5PSIxNjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjMTExIj4xMjA8L3RleHQ+CiAgPHRleHQgeD0iMTYwIiB5PSIzMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjNTU1Ij5yaWdodCg5MMKwKSBhdCBlYWNoIGNvcm5lcjwvdGV4dD4KPC9zdmc+Cg==" alt="Квадрат, який малює черепашка">
+<h3>Ідея</h3>
+<p>Квадрат має чотири однакові сторони і чотири прямі кути по 90°. Тому замість чотирьох однакових пар команд ми повторюємо одну пару чотири рази — це і є цикл.</p>
+<h3>Код уроку</h3>
+<pre><code>import turtle
+t = turtle.Turtle()
+t.speed(8)
+t.pencolor("blue")
+for _ in range(4):
+    t.forward(120)
+    t.right(90)
+print("Готово!")</code></pre>
+<h3>Спробуйте самі</h3>
+<p>Змініть <code>120</code> на <code>60</code> і подивіться, що зміниться. Потім поставте 5 повторів і поворот 72° — що вийде?</p>
+<!-- Відео (коли буде): <div class="lp-video"><iframe src="https://www.youtube-nocookie.com/embed/ВІДЕО_ID" allowfullscreen></iframe></div> -->
+]]></theory>
+  <theory lang="en"><![CDATA[
+<h2>Drawing a square with a turtle</h2>
+<p>The turtle moves across the screen like a pen. The command <code>forward(120)</code> moves it 120 pixels forward, and <code>right(90)</code> turns it 90° to the right.</p>
+<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMzIwIiB3aWR0aD0iMzIwIiBoZWlnaHQ9IjMyMCI+CiAgPHJlY3Qgd2lkdGg9IjMyMCIgaGVpZ2h0PSIzMjAiIGZpbGw9IiNmZmZmZmYiLz4KICA8cmVjdCB4PSI2MCIgeT0iNjAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMyNTYzZWIiIHN0cm9rZS13aWR0aD0iNiIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTIsNTAgNTIsNzAgNzAsNjAiIGZpbGw9IiMxNmEzNGEiLz4KICA8dGV4dCB4PSIxNjAiIHk9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjI3MCIgeT0iMTY1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjE2MCIgeT0iMjg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzExMSI+MTIwPC90ZXh0PgogIDx0ZXh0IHg9IjQwIiB5PSIxNjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjMTExIj4xMjA8L3RleHQ+CiAgPHRleHQgeD0iMTYwIiB5PSIzMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjNTU1Ij5yaWdodCg5MMKwKSBhdCBlYWNoIGNvcm5lcjwvdGV4dD4KPC9zdmc+Cg==" alt="A square drawn by the turtle">
+<h3>The idea</h3>
+<p>A square has four equal sides and four right angles of 90°. Instead of writing the same pair of commands four times, we repeat the pair four times — that is a loop.</p>
+<h3>Lesson code</h3>
+<pre><code>import turtle
+t = turtle.Turtle()
+t.speed(8)
+t.pencolor("blue")
+for _ in range(4):
+    t.forward(120)
+    t.right(90)
+print("Готово!")</code></pre>
+<h3>Try it yourself</h3>
+<p>Change <code>120</code> to <code>60</code> and see what happens. Then use 5 repeats and a 72° turn — what do you get?</p>
+<!-- Video (when available): <div class="lp-video"><iframe src="https://www.youtube-nocookie.com/embed/VIDEO_ID" allowfullscreen></iframe></div> -->
+]]></theory>
+  <block type="flag_start" x="20" y="20">
+    <next>
+  <block type="import_turtle">
+    <next>
+      <block type="create_turtle">
+        <field name="NAME">t</field>
+        <next>
+          <block type="set_speed">
+            <field name="NAME">t</field>
+            <value name="SPEED"><shadow type="math_number"><field name="NUM">8</field></shadow></value>
+            <next>
+              <block type="t_color">
+                <value name="COLOR"><shadow type="text"><field name="TEXT">blue</field></shadow></value>
+                <next>
+                  <block type="controls_repeat_ext">
+                    <value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
+                    <statement name="DO">
+                      <block type="t_forward">
+                        <value name="DIST"><shadow type="math_number"><field name="NUM">120</field></shadow></value>
+                        <next>
+                          <block type="t_right">
+                            <value name="ANGLE"><shadow type="math_number"><field name="NUM">90</field></shadow></value>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="print">
+                        <value name="VALUE"><shadow type="text"><field name="TEXT">Готово!</field></shadow></value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+    </next>
+  </block>
+</xml>
